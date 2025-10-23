@@ -16,3 +16,9 @@ It demonstrates file handling, authentication, and transaction management with p
 ---
 
 ## 📂 Folder Structure
+-ATM-Simulation-System-/
+ |-.gitignore
+ |-LICENSE
+ |-Makefile
+ |-README.md
+ |-atm.c
