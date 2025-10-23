@@ -27,6 +27,8 @@ void saveTransaction(int accNo, const char *type, float amount);
 void displayMainMenu();
 void displayUserMenu();
 void clearInputBuffer();
+void clearScreen();
+void pauseScreen();
 
 int main() {
     Account accounts[MAX_ACCOUNTS];
@@ -41,10 +43,15 @@ int main() {
     // Load existing accounts
     accountCount = loadAccounts(accounts);
 
-    printf(" Welcome to ATM Simulation System\n");
+    clearScreen();
     printf("===================================\n");
+    printf(" Welcome to ATM Simulation System\n");
+    printf("            version 1.1"          "\n");
+    printf("===================================\n");
+    pauseScreen();
 
     while (1) {
+        clearScreen();
         if (!loggedIn) {
             displayMainMenu();
             printf("Enter your choice: ");
@@ -53,18 +60,23 @@ int main() {
 
             switch (choice) {
                 case 1:
+                    clearScreen();
                     if (login(accounts, accountCount, &currentAccount)) {
                         loggedIn = 1;
                         printf("\n Login successful! Welcome, %s!\n", currentAccount.name);
+                        pauseScreen();
                     } else {
                         printf("\n Login failed! Invalid account number or PIN.\n");
+                        pauseScreen();
                     }
                     break;
                 case 2:
+                    clearScreen();
                     printf("\nThank you for using our ATM. Goodbye! \n");
                     exit(0);
                 default:
                     printf("\n Invalid choice! Please try again.\n");
+                    pauseScreen();
             }
         } else {
             displayUserMenu();
@@ -74,29 +86,52 @@ int main() {
 
             switch (choice) {
                 case 1:
+                    clearScreen();
                     deposit(&currentAccount, accounts, accountCount);
+                    pauseScreen();
                     break;
                 case 2:
+                    clearScreen();
                     withdraw(&currentAccount, accounts, accountCount);
+                    pauseScreen();
                     break;
                 case 3:
+                    clearScreen();
                     checkBalance(currentAccount);
+                    pauseScreen();
                     break;
                 case 4:
+                    clearScreen();
                     viewTransactionHistory(currentAccount.accountNumber);
+                    pauseScreen();
                     break;
                 case 5:
+                    clearScreen();
                     loggedIn = 0;
                     printf("\n Logged out successfully!\n");
+                    pauseScreen();
                     break;
                 default:
                     printf("\n Invalid choice! Please try again.\n");
+                    pauseScreen();
             }
         }
-        printf("\n");
     }
 
     return 0;
+}
+
+void clearScreen() {
+    #ifdef _WIN32
+        system("cls");
+    #else
+        system("clear");
+    #endif
+}
+
+void pauseScreen() {
+    printf("\nPress Enter to continue...");
+    getchar();
 }
 
 void initializeFiles() {
@@ -158,7 +193,7 @@ void saveAccounts(Account accounts[], int count) {
 int login(Account accounts[], int count, Account *currentAccount) {
     int accountNumber, pin;
 
-    printf("\n Login\n");
+    printf("\n ===============Login===============\n");
     printf("Enter account number: ");
     scanf("%d", &accountNumber);
     printf("Enter PIN: ");
@@ -178,13 +213,13 @@ int login(Account accounts[], int count, Account *currentAccount) {
 void deposit(Account *acc, Account accounts[], int count) {
     float amount;
 
-    printf("\n Deposit\n");
-    printf("Enter amount to deposit: ");
+    printf("\n===============Deposit===============\n");
+    printf("\nEnter amount to deposit: ");
     scanf("%f", &amount);
     clearInputBuffer();
 
     if (amount <= 0) {
-        printf(" Invalid amount! Amount must be positive.\n");
+        printf("\nInvalid amount! Amount must be positive.\n");
         return;
     }
 
@@ -204,13 +239,13 @@ void deposit(Account *acc, Account accounts[], int count) {
     // Save transaction
     saveTransaction(acc->accountNumber, "Deposit", amount);
 
-    printf(" Deposit successful! New balance: $%.2f\n", acc->balance);
+    printf("\nDeposit successful! \n\nNew balance: $%.2f\n", acc->balance);
 }
 
 void withdraw(Account *acc, Account accounts[], int count) {
     float amount;
 
-    printf("\n Withdraw\n");
+    printf("\n===============Withdraw===============\n");
     printf("Enter amount to withdraw: ");
     scanf("%f", &amount);
     clearInputBuffer();
@@ -221,7 +256,7 @@ void withdraw(Account *acc, Account accounts[], int count) {
     }
 
     if (amount > acc->balance) {
-        printf(" Insufficient funds! Current balance: $%.2f\n", acc->balance);
+        printf("\n\nInsufficient funds!\n\n Current balance: $%.2f\n", acc->balance);
         return;
     }
 
@@ -241,11 +276,11 @@ void withdraw(Account *acc, Account accounts[], int count) {
     // Save transaction
     saveTransaction(acc->accountNumber, "Withdraw", amount);
 
-    printf(" Withdrawal successful! New balance: $%.2f\n", acc->balance);
+    printf("\n\nWithdrawal successful! \n\nNew balance: $%.2f\n", acc->balance);
 }
 
 void checkBalance(Account acc) {
-    printf("\n Balance Inquiry\n");
+    printf("\n===============Balance Inquiry===============\n");
     printf("Account Holder: %s\n", acc.name);
     printf("Account Number: %d\n", acc.accountNumber);
     printf("Current Balance: $%.2f\n", acc.balance);
@@ -260,7 +295,8 @@ void viewTransactionHistory(int accountNumber) {
     float amount;
     char datetime[20];
 
-    printf("\n Transaction History for Account: %d\n", accountNumber);
+    printf("==========================================\n");
+    printf(" Transaction History for Account: %d\n", accountNumber);
     printf("==========================================\n");
 
     if (file == NULL) {
@@ -303,17 +339,17 @@ void saveTransaction(int accNo, const char *type, float amount) {
 }
 
 void displayMainMenu() {
-    printf("\n Main Menu\n");
+    printf("\n ===============Main Menu===============\n");
     printf("1. Login\n");
     printf("2. Exit\n");
 }
 
 void displayUserMenu() {
-    printf("\n User Menu\n");
+    printf("\n ===============User Menu===============\n");
     printf("1. Deposit\n");
     printf("2. Withdraw\n");
     printf("3. Balance Inquiry\n");
-    printf("4.Transaction History\n");
+    printf("4. Transaction History\n");
     printf("5. Logout\n");
 }
 
