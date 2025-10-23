@@ -35,3 +35,6 @@ All account and transaction data are stored in text files (`accounts.txt` and `t
 ---
 
 ## 🧮 Example Account Data Format (`accounts.txt`)
+125742 Masud 1234 5000.00
+102013 Mahin 4321 3000.00
+566778 Fahim 5678 2000.00
