@@ -13,12 +13,7 @@ It demonstrates file handling, authentication, and transaction management with p
 ✅ File-based data persistence  
 ✅ Cross-platform (Windows, Linux, macOS)
 
----
+-
 
-## 📂 Folder Structure
--ATM-Simulation-System-/
- |-.gitignore
- |-LICENSE
- |-Makefile
- |-README.md
- |-atm.c
+
+
