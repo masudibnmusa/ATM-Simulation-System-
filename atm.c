@@ -2,7 +2,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-
+#ifdef _WIN32
+#include <conio.h>
+#else
+#include <termios.h>
+#include <unistd.h>
+#endif
 #define MAX_ACCOUNTS 100
 #define FILENAME_ACCOUNTS "accounts.txt"
 #define FILENAME_TRANSACTIONS "transactions.txt"
@@ -29,6 +34,7 @@ void displayUserMenu();
 void clearInputBuffer();
 void clearScreen();
 void pauseScreen();
+int getMaskedPIN();
 
 int main() {
     Account accounts[MAX_ACCOUNTS];
@@ -46,7 +52,7 @@ int main() {
     clearScreen();
     printf("===================================\n");
     printf(" Welcome to ATM Simulation System\n");
-    printf("            version 1.1"          "\n");
+    printf("            version 2.0"          "\n");
     printf("===================================\n");
     pauseScreen();
 
@@ -119,6 +125,62 @@ int main() {
     }
 
     return 0;
+}
+
+int getMaskedPIN() {
+    char pinStr[20];
+    int pinLength = 0;
+    int ch;
+
+#ifdef _WIN32
+    // Windows implementation using conio.h
+    while (1) {
+        ch = _getch();
+
+        if (ch == 13) { // Enter key
+            pinStr[pinLength] = '\0';
+            break;
+        } else if (ch == 8 && pinLength > 0) { // Backspace
+            pinLength--;
+            printf("\b \b");
+        } else if (ch >= '0' && ch <= '9' && pinLength < 10) {
+            pinStr[pinLength++] = ch;
+            printf("*");
+        }
+    }
+#else
+    // Unix/Linux implementation using termios
+    struct termios oldSettings, newSettings;
+
+    // Disable echoing
+    tcgetattr(STDIN_FILENO, &oldSettings);
+    newSettings = oldSettings;
+    newSettings.c_lflag &= ~(ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, &newSettings);
+
+    while (1) {
+        ch = getchar();
+
+        if (ch == '\n' || ch == '\r') { // Enter key
+            pinStr[pinLength] = '\0';
+            break;
+        } else if (ch == 127 && pinLength > 0) { // Backspace
+            pinLength--;
+            printf("\b \b");
+            fflush(stdout);
+        } else if (ch >= '0' && ch <= '9' && pinLength < 10) {
+            pinStr[pinLength++] = ch;
+            printf("*");
+            fflush(stdout);
+        }
+    }
+
+    // Restore terminal settings
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldSettings);
+#endif
+
+    printf("\n");
+    return atoi(pinStr);
 }
 
 void clearScreen() {
@@ -196,9 +258,10 @@ int login(Account accounts[], int count, Account *currentAccount) {
     printf("\n ===============Login===============\n");
     printf("Enter account number: ");
     scanf("%d", &accountNumber);
-    printf("Enter PIN: ");
-    scanf("%d", &pin);
     clearInputBuffer();
+
+    printf("Enter PIN: ");
+    pin = getMaskedPIN();
 
     for (int i = 0; i < count; i++) {
         if (accounts[i].accountNumber == accountNumber && accounts[i].pin == pin) {
