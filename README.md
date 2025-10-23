@@ -1,2 +1,37 @@
-# ATM-Simulation-System-
-This project is a console-based ATM simulation written in C. It uses file handling to store and retrieve user account and transaction data. The system allows users to log in with an account number and PIN, perform deposits, withdrawals, check balances, and view transaction history — all saved securely in text files.
+# 💳 ATM Simulation System (C Project)
+
+## 📖 Overview
+This is a simple **ATM Simulation System** written in **C language**.  
+It allows users to log in using their account number and PIN, perform banking operations like deposits, withdrawals, and view transaction history.  
+All account and transaction data are stored in text files (`accounts.txt` and `transactions.txt`).
+
+---
+
+## ⚙️ Features
+- 🔐 User Login (Account Number & PIN)
+- 💰 Deposit & Withdraw Money
+- 📊 Balance Inquiry
+- 🧾 Transaction History (Saved with timestamps)
+- 💾 Persistent Data using File Handling
+
+---
+
+## 🧩 Concepts Used
+- **Structures (`struct`)**
+- **File Handling (Read/Write)**
+- **Functions**
+- **Basic Authentication**
+- **Time & Date using `<time.h>`**
+
+---
+
+## 🗂️ Files
+| File Name | Description |
+|------------|-------------|
+| `main.c` | Main program file |
+| `accounts.txt` | Stores account details (Account No, Name, PIN, Balance) |
+| `transactions.txt` | Stores transaction history with date and time |
+
+---
+
+## 🧮 Example Account Data Format (`accounts.txt`)
