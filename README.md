@@ -1,23 +1,18 @@
-# ATM Simulation System
+# 💳 ATM Simulation System (C Language)
 
-A console-based ATM simulation system written in C that mimics real ATM operations including deposit, withdrawal, balance inquiry, and transaction history.
+A simple console-based **ATM Simulation System** written in **C**.  
+It demonstrates file handling, authentication, and transaction management with persistent data storage.
 
-## Features
+---
 
-- **User Authentication**: Secure login with account number and PIN
-- **Account Management**: Deposit and withdraw funds
-- **Balance Inquiry**: Check current account balance
-- **Transaction History**: View all past transactions with timestamps
-- **Cross-Platform**: Works on Windows and Unix/Linux systems
-- **Data Persistence**: Saves account and transaction data to files
+## 🚀 Features
+✅ Secure login system (PIN masked input)  
+✅ Deposit and withdrawal functionality  
+✅ Balance inquiry  
+✅ Transaction history log  
+✅ File-based data persistence  
+✅ Cross-platform (Windows, Linux, macOS)
 
-## Requirements
+---
 
-- C Compiler (GCC, Clang, or MSVC)
-- Standard C Library
-
-## Compilation
-
-### Linux/Mac:
-```bash
-gcc -o atm atm_simulation.c
+## 📂 Folder Structure
