@@ -36,6 +36,7 @@ void clearScreen();
 void pauseScreen();
 int getMaskedPIN();
 void changePIN(Account *acc, Account accounts[], int count);
+void fundTransfer(Account *acc, Account accounts[], int count);
 int main() {
     Account accounts[MAX_ACCOUNTS];
     Account currentAccount;
@@ -52,7 +53,7 @@ int main() {
     clearScreen();
     printf("===================================\n");
     printf(" Welcome to ATM Simulation System\n");
-    printf("            version 4.0"          "\n");
+    printf("            version 4.1"          "\n");
     printf("===================================\n");
     pauseScreen();
 
@@ -78,7 +79,7 @@ int main() {
                     break;
                 case 2:
                     clearScreen();
-                    printf("\n Thank you for using our ATM.\n Goodbye!\n Developed by Masud\n Version 4.0 \n");
+                    printf("\n Thank you for using our ATM.\n Goodbye!\n Version 4.1\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nDeveloped by Masud\n ");
                     exit(0);
                 default:
                     printf("\n Invalid choice! Please try again.\n");
@@ -103,25 +104,33 @@ int main() {
                     break;
                 case 3:
                     clearScreen();
-                    checkBalance(currentAccount);
+                    fundTransfer(&currentAccount, accounts, accountCount);
                     pauseScreen();
                     break;
                 case 4:
                     clearScreen();
-                    viewTransactionHistory(currentAccount.accountNumber);
+                    checkBalance(currentAccount);
                     pauseScreen();
                     break;
                 case 5:
                     clearScreen();
+                    viewTransactionHistory(currentAccount.accountNumber);
+                    pauseScreen();
+                    break;
+                case 6:
+                    clearScreen();
                     changePIN(&currentAccount, accounts, accountCount);
                     pauseScreen();
                     break;
-                case 6:  // Change the logout from 5 to 6
+                case 7:
                     clearScreen();
                     loggedIn = 0;
-                    printf("\n Logged out successfully!");
+                    printf("\n Logged out successfully!\n");
                     pauseScreen();
                     break;
+                default:
+                    printf("\n Invalid choice! Please try again.\n");
+                    pauseScreen();
             }
         }
     }
@@ -466,6 +475,112 @@ void changePIN(Account *acc, Account accounts[], int count) {
     printf("\n\nPIN changed successfully!\n");
     printf("Please remember your new PIN.\n");
 }
+void fundTransfer(Account *acc, Account accounts[], int count) {
+    int recipientAccountNumber;
+    float amount;
+    int recipientIndex = -1;
+    char confirm;
+
+    printf("\n===============Fund Transfer===============\n");
+
+    // Get recipient account number
+    printf("Enter recipient account number: ");
+    scanf("%d", &recipientAccountNumber);
+    clearInputBuffer();
+
+    // Check if trying to transfer to own account
+    if (recipientAccountNumber == acc->accountNumber) {
+        printf("\nError: Cannot transfer to your own account!\n");
+        return;
+    }
+
+    // Find recipient account
+    for (int i = 0; i < count; i++) {
+        if (accounts[i].accountNumber == recipientAccountNumber) {
+            recipientIndex = i;
+            break;
+        }
+    }
+
+    if (recipientIndex == -1) {
+        printf("\nError: Recipient account not found!\n");
+        return;
+    }
+
+    // Display recipient name for confirmation
+    printf("\nRecipient: %s\n", accounts[recipientIndex].name);
+    printf("Recipient Account: %d\n", recipientAccountNumber);
+
+    // Get transfer amount
+    printf("\nEnter amount to transfer: $");
+    scanf("%f", &amount);
+    clearInputBuffer();
+
+    // Validate amount
+    if (amount <= 0) {
+        printf("\nInvalid amount! Amount must be positive.\n");
+        return;
+    }
+
+    // Check sufficient balance
+    if (amount > acc->balance) {
+        printf("\nInsufficient funds!\n");
+        printf("Your current balance: $%.2f\n", acc->balance);
+        printf("Transfer amount: $%.2f\n", amount);
+        return;
+    }
+
+    // Confirm transfer
+    clearScreen();
+    printf("\n--- Transfer Summary ---\n");
+    printf("From: %s (Account: %d)\n", acc->name, acc->accountNumber);
+    printf("To: %s (Account: %d)\n", accounts[recipientIndex].name, recipientAccountNumber);
+    printf("Amount: $%.2f\n", amount);
+    printf("\nYour new balance will be: $%.2f\n", acc->balance - amount);
+    printf("\nConfirm transfer? (y/n): ");
+    scanf("%c", &confirm);
+    clearInputBuffer();
+
+    if (confirm != 'y' && confirm != 'Y') {
+        clearScreen();
+        printf("\nTransfer cancelled.\n");
+        return;
+    }
+
+    // Perform transfer
+    acc->balance -= amount;
+    accounts[recipientIndex].balance += amount;
+
+    // Update sender account in array
+    for (int i = 0; i < count; i++) {
+        if (accounts[i].accountNumber == acc->accountNumber) {
+            accounts[i].balance = acc->balance;
+            break;
+        }
+    }
+
+    // Save updated accounts to file
+    saveAccounts(accounts, count);
+
+    // Save transactions for both accounts
+    char transactionDesc[50];
+
+    // Save sender transaction
+    sprintf(transactionDesc, "Transfer_to_%d", recipientAccountNumber);
+    saveTransaction(acc->accountNumber, transactionDesc, amount);
+
+    // Save recipient transaction
+    sprintf(transactionDesc, "Transfer_from_%d", acc->accountNumber);
+    saveTransaction(recipientAccountNumber, transactionDesc, amount);
+
+    clearScreen();
+    printf("\n========================================\n");
+    printf("         Transfer successful!\n");
+    printf("========================================\n");
+    printf("Amount transferred: $%.2f\n", amount);
+    printf("To: %s (Account: %d)\n", accounts[recipientIndex].name, recipientAccountNumber);
+    printf("Your new balance: $%.2f\n", acc->balance);
+}
 
 void displayMainMenu() {
     printf("\n ===============Main Menu===============\n");
@@ -477,10 +592,11 @@ void displayUserMenu() {
     printf("\n ===============User Menu===============\n");
     printf("1. Deposit\n");
     printf("2. Withdraw\n");
-    printf("3. Balance Inquiry\n");
-    printf("4. Transaction History\n");
-    printf("5. Change PIN\n");
-    printf("6. Logout\n");
+    printf("3. Fund Transfer\n");
+    printf("4. Balance Inquiry\n");
+    printf("5. Transaction History\n");
+    printf("6. Change PIN\n");
+    printf("7. Logout\n");
 }
 
 void clearInputBuffer() {
