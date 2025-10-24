@@ -35,7 +35,7 @@ void clearInputBuffer();
 void clearScreen();
 void pauseScreen();
 int getMaskedPIN();
-
+void changePIN(Account *acc, Account accounts[], int count);
 int main() {
     Account accounts[MAX_ACCOUNTS];
     Account currentAccount;
@@ -52,7 +52,7 @@ int main() {
     clearScreen();
     printf("===================================\n");
     printf(" Welcome to ATM Simulation System\n");
-    printf("            version 2.1.1"          "\n");
+    printf("            version 4.0"          "\n");
     printf("===================================\n");
     pauseScreen();
 
@@ -78,7 +78,7 @@ int main() {
                     break;
                 case 2:
                     clearScreen();
-                    printf("\nThank you for using our ATM. Goodbye! \n");
+                    printf("\n Thank you for using our ATM.\n Goodbye!\n Developed by Masud\n Version 4.0 \n");
                     exit(0);
                 default:
                     printf("\n Invalid choice! Please try again.\n");
@@ -113,13 +113,15 @@ int main() {
                     break;
                 case 5:
                     clearScreen();
-                    loggedIn = 0;
-                    printf("\n Logged out successfully!\n");
+                    changePIN(&currentAccount, accounts, accountCount);
                     pauseScreen();
                     break;
-                default:
-                    printf("\n Invalid choice! Please try again.\n");
+                case 6:  // Change the logout from 5 to 6
+                    clearScreen();
+                    loggedIn = 0;
+                    printf("\n Logged out successfully!");
                     pauseScreen();
+                    break;
             }
         }
     }
@@ -405,6 +407,65 @@ void saveTransaction(int accNo, const char *type, float amount) {
     fprintf(file, "%d %s %.2f %s %s\n", accNo, type, amount, date, time);
     fclose(file);
 }
+void changePIN(Account *acc, Account accounts[], int count) {
+    int oldPin, newPin, confirmPin;
+
+    printf("\n===============Change PIN===============\n");
+
+    // Verify current PIN
+    printf("Enter current PIN: ");
+    oldPin = getMaskedPIN();
+
+    if (oldPin != acc->pin) {
+        printf("\nIncorrect current PIN! PIN change failed.\n");
+        return;
+    }
+
+    // Get new PIN
+    printf("Enter new PIN (4-6 digits): ");
+    newPin = getMaskedPIN();
+
+    // Validate new PIN
+    if (newPin < 1000 || newPin > 999999) {
+        printf("\nInvalid PIN! PIN must be between 4-6 digits.\n");
+        return;
+    }
+
+    // Check if new PIN is same as old PIN
+    if (newPin == oldPin) {
+        printf("\nNew PIN cannot be the same as current PIN!\n");
+        return;
+    }
+
+    // Confirm new PIN
+    printf("Confirm new PIN: ");
+    confirmPin = getMaskedPIN();
+
+    if (newPin != confirmPin) {
+        printf("\nPINs do not match! PIN change failed.\n");
+        return;
+    }
+
+    // Update PIN in current account
+    acc->pin = newPin;
+
+    // Update PIN in accounts array
+    for (int i = 0; i < count; i++) {
+        if (accounts[i].accountNumber == acc->accountNumber) {
+            accounts[i].pin = newPin;
+            break;
+        }
+    }
+
+    // Save updated accounts to file
+    saveAccounts(accounts, count);
+
+    // Log the PIN change transaction
+    saveTransaction(acc->accountNumber, "PIN_Change", 0.00);
+
+    printf("\n\nPIN changed successfully!\n");
+    printf("Please remember your new PIN.\n");
+}
 
 void displayMainMenu() {
     printf("\n ===============Main Menu===============\n");
@@ -418,7 +479,8 @@ void displayUserMenu() {
     printf("2. Withdraw\n");
     printf("3. Balance Inquiry\n");
     printf("4. Transaction History\n");
-    printf("5. Logout\n");
+    printf("5. Change PIN\n");
+    printf("6. Logout\n");
 }
 
 void clearInputBuffer() {
