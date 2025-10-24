@@ -52,7 +52,7 @@ int main() {
     clearScreen();
     printf("===================================\n");
     printf(" Welcome to ATM Simulation System\n");
-    printf("            version 2.0"          "\n");
+    printf("            version 2.1.1"          "\n");
     printf("===================================\n");
     pauseScreen();
 
@@ -356,7 +356,8 @@ void viewTransactionHistory(int accountNumber) {
     int currentAccNo;
     char type[20];
     float amount;
-    char datetime[20];
+    char date[20];
+    char time[20];
 
     printf("==========================================\n");
     printf(" Transaction History for Account: %d\n", accountNumber);
@@ -368,9 +369,10 @@ void viewTransactionHistory(int accountNumber) {
     }
 
     while (fgets(line, sizeof(line), file)) {
-        if (sscanf(line, "%d %19s %f %19s", &currentAccNo, type, &amount, datetime) == 4) {
+        // FIXED: Read with separate date and time fields
+        if (sscanf(line, "%d %19s %f %19s %19s", &currentAccNo, type, &amount, date, time) == 5) {
             if (currentAccNo == accountNumber) {
-                printf("%s - %s: $%.2f\n", datetime, type, amount);
+                printf("%s %s - %s: $%.2f\n", date, time, type, amount);
                 found = 1;
             }
         }
@@ -387,17 +389,20 @@ void saveTransaction(int accNo, const char *type, float amount) {
     FILE *file = fopen(FILENAME_TRANSACTIONS, "a");
     time_t t = time(NULL);
     struct tm *tm_info = localtime(&t);
-    char datetime[20];
+    char date[20];
+    char time[20];
 
     if (file == NULL) {
         printf(" Error saving transaction!\n");
         return;
     }
 
-    // Format date as YYYY-MM-DD HH:MM
-    strftime(datetime, sizeof(datetime), "%Y-%m-%d %H:%M", tm_info);
+    // FIXED: Format date and time separately
+    strftime(date, sizeof(date), "%Y-%m-%d", tm_info);
+    strftime(time, sizeof(time), "%H:%M:%S", tm_info);
 
-    fprintf(file, "%d %s %.2f %s\n", accNo, type, amount, datetime);
+    // Save with space-separated format
+    fprintf(file, "%d %s %.2f %s %s\n", accNo, type, amount, date, time);
     fclose(file);
 }
 
