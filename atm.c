@@ -11,6 +11,10 @@
 #define MAX_ACCOUNTS 100
 #define FILENAME_ACCOUNTS "accounts.txt"
 #define FILENAME_TRANSACTIONS "transactions.txt"
+#define MAX_DAILY_WITHDRAWAL 5000.00
+#define MAX_SINGLE_WITHDRAWAL 2000.00
+#define MAX_SINGLE_TRANSFER 3000.00
+#define MAX_DAILY_TRANSACTIONS 10
 
 typedef struct {
     int accountNumber;
@@ -18,6 +22,12 @@ typedef struct {
     int pin;
     float balance;
 } Account;
+typedef struct {
+    int accountNumber;
+    char date[20];
+    float totalWithdrawn;
+    int transactionCount;
+} DailyLimit;
 
 // Function prototypes
 void initializeFiles();
@@ -37,6 +47,12 @@ void pauseScreen();
 int getMaskedPIN();
 void changePIN(Account *acc, Account accounts[], int count);
 void fundTransfer(Account *acc, Account accounts[], int count);
+float getTodayWithdrawal(int accountNumber);
+int getTodayTransactionCount(int accountNumber);
+void saveDailyLimit(int accountNumber, float amount);
+void incrementTransactionCount(int accountNumber);
+int checkDailyLimit(int accountNumber, float amount, const char *type);
+
 int main() {
     Account accounts[MAX_ACCOUNTS];
     Account currentAccount;
@@ -53,7 +69,7 @@ int main() {
     clearScreen();
     printf("===================================\n");
     printf(" Welcome to ATM Simulation System\n");
-    printf("            version 4.1"          "\n");
+    printf("            version 5.0"          "\n");
     printf("===================================\n");
     pauseScreen();
 
@@ -79,7 +95,7 @@ int main() {
                     break;
                 case 2:
                     clearScreen();
-                    printf("\n Thank you for using our ATM.\n Goodbye!\n Version 4.1\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nDeveloped by Masud\n ");
+                    printf("\n Thank you for using our ATM.\n Goodbye!\n Version 5.0\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nDeveloped by Masud\n ");
                     exit(0);
                 default:
                     printf("\n Invalid choice! Please try again.\n");
@@ -320,12 +336,23 @@ void withdraw(Account *acc, Account accounts[], int count) {
     float amount;
 
     printf("\n===============Withdraw===============\n");
+    printf("Daily Withdrawal Limit: $%.2f\n", MAX_DAILY_WITHDRAWAL);
+    printf("Single Withdrawal Limit: $%.2f\n", MAX_SINGLE_WITHDRAWAL);
+    printf("Already withdrawn today: $%.2f\n", getTodayWithdrawal(acc->accountNumber));
+    printf("Transactions today: %d/%d\n", getTodayTransactionCount(acc->accountNumber), MAX_DAILY_TRANSACTIONS);
+    printf("======================================\n");
+
     printf("Enter amount to withdraw: ");
     scanf("%f", &amount);
     clearInputBuffer();
 
     if (amount <= 0) {
-        printf(" Invalid amount! Amount must be positive.\n");
+        printf("\nInvalid amount! Amount must be positive.\n");
+        return;
+    }
+
+    // Check transaction limits
+    if (!checkDailyLimit(acc->accountNumber, amount, "Withdraw")) {
         return;
     }
 
@@ -416,6 +443,137 @@ void saveTransaction(int accNo, const char *type, float amount) {
     fprintf(file, "%d %s %.2f %s %s\n", accNo, type, amount, date, time);
     fclose(file);
 }
+// Implementation of transaction limit functions
+
+// Get today's total withdrawal amount for an account
+float getTodayWithdrawal(int accountNumber) {
+    FILE *file = fopen(FILENAME_TRANSACTIONS, "r");
+    char line[200];
+    int accNo;
+    char type[20];
+    float amount;
+    char transDate[20];
+    char transTime[20];
+    float totalWithdrawn = 0.0;
+
+    // Get today's date
+    time_t t = time(NULL);
+    struct tm *tm_info = localtime(&t);
+    char today[20];
+    strftime(today, sizeof(today), "%Y-%m-%d", tm_info);
+
+    if (file == NULL) {
+        return 0.0;
+    }
+
+    while (fgets(line, sizeof(line), file)) {
+        if (sscanf(line, "%d %19s %f %19s %19s", &accNo, type, &amount, transDate, transTime) == 5) {
+            if (accNo == accountNumber && strcmp(transDate, today) == 0) {
+                // Count withdrawals and transfers (outgoing money)
+                if (strcmp(type, "Withdraw") == 0 || strncmp(type, "Transfer_to_", 12) == 0) {
+                    totalWithdrawn += amount;
+                }
+            }
+        }
+    }
+
+    fclose(file);
+    return totalWithdrawn;
+}
+
+// Get today's transaction count for an account
+int getTodayTransactionCount(int accountNumber) {
+    FILE *file = fopen(FILENAME_TRANSACTIONS, "r");
+    char line[200];
+    int accNo;
+    char type[20];
+    float amount;
+    char transDate[20];
+    char transTime[20];
+    int count = 0;
+
+    // Get today's date
+    time_t t = time(NULL);
+    struct tm *tm_info = localtime(&t);
+    char today[20];
+    strftime(today, sizeof(today), "%Y-%m-%d", tm_info);
+
+    if (file == NULL) {
+        return 0;
+    }
+
+    while (fgets(line, sizeof(line), file)) {
+        if (sscanf(line, "%d %19s %f %19s %19s", &accNo, type, &amount, transDate, transTime) == 5) {
+            if (accNo == accountNumber && strcmp(transDate, today) == 0) {
+                count++;
+            }
+        }
+    }
+
+    fclose(file);
+    return count;
+}
+
+// Check if transaction is within daily limits
+int checkDailyLimit(int accountNumber, float amount, const char *type) {
+    float todayWithdrawal = getTodayWithdrawal(accountNumber);
+    int todayTransactions = getTodayTransactionCount(accountNumber);
+
+    // Check transaction count limit
+    if (todayTransactions >= MAX_DAILY_TRANSACTIONS) {
+        clearScreen();
+        printf("\n========================================\n");
+        printf("DAILY TRANSACTION LIMIT REACHED!\n");
+        printf("========================================\n");
+        printf("You have reached the maximum number of\n");
+        printf("transactions allowed per day (%d).\n", MAX_DAILY_TRANSACTIONS);
+        printf("Current transactions today: %d\n", todayTransactions);
+        printf("Please try again tomorrow.\n");
+        return 0;
+    }
+
+    // Check single transaction limits
+    if (strcmp(type, "Withdraw") == 0) {
+        if (amount > MAX_SINGLE_WITHDRAWAL) {
+            clearScreen();
+            printf("\n========================================\n");
+            printf("SINGLE WITHDRAWAL LIMIT EXCEEDED!\n");
+            printf("========================================\n");
+            printf("Maximum withdrawal per transaction: $%.2f\n", MAX_SINGLE_WITHDRAWAL);
+            printf("Your requested amount: $%.2f\n", amount);
+            pauseScreen();
+            return 0;
+        }
+    } else if (strcmp(type, "Transfer") == 0) {
+        if (amount > MAX_SINGLE_TRANSFER) {
+            clearScreen();
+            printf("\n========================================\n");
+            printf("SINGLE TRANSFER LIMIT EXCEEDED!\n");
+            printf("========================================\n");
+            printf("Maximum transfer per transaction: $%.2f\n", MAX_SINGLE_TRANSFER);
+            printf("Your requested amount: $%.2f\n", amount);
+            pauseScreen();
+            return 0;
+        }
+    }
+
+    // Check daily withdrawal limit (for withdrawals and transfers)
+    if (strcmp(type, "Withdraw") == 0 || strcmp(type, "Transfer") == 0) {
+        if (todayWithdrawal + amount > MAX_DAILY_WITHDRAWAL) {
+            clearScreen();
+            printf("\n========================================\n");
+            printf("DAILY WITHDRAWAL LIMIT EXCEEDED!\n");
+            printf("========================================\n");
+            printf("Daily withdrawal limit: $%.2f\n", MAX_DAILY_WITHDRAWAL);
+            printf("Already withdrawn today: $%.2f\n", todayWithdrawal);
+            printf("Remaining limit: $%.2f\n", MAX_DAILY_WITHDRAWAL - todayWithdrawal);
+            printf("Your requested amount: $%.2f\n", amount);
+            return 0;
+        }
+    }
+
+    return 1; // All checks passed
+}
 void changePIN(Account *acc, Account accounts[], int count) {
     int oldPin, newPin, confirmPin;
 
@@ -482,8 +640,14 @@ void fundTransfer(Account *acc, Account accounts[], int count) {
     char confirm;
 
     printf("\n===============Fund Transfer===============\n");
+    printf("Daily Withdrawal Limit: $%.2f\n", MAX_DAILY_WITHDRAWAL);
+    printf("Single Transfer Limit: $%.2f\n", MAX_SINGLE_TRANSFER);
+    printf("Already withdrawn today: $%.2f\n", getTodayWithdrawal(acc->accountNumber));
+    printf("Transactions today: %d/%d\n", getTodayTransactionCount(acc->accountNumber), MAX_DAILY_TRANSACTIONS);
+    pauseScreen();
 
     // Get recipient account number
+    clearScreen();
     printf("Enter recipient account number: ");
     scanf("%d", &recipientAccountNumber);
     clearInputBuffer();
@@ -519,6 +683,11 @@ void fundTransfer(Account *acc, Account accounts[], int count) {
     // Validate amount
     if (amount <= 0) {
         printf("\nInvalid amount! Amount must be positive.\n");
+        return;
+    }
+
+    // Check transaction limits
+    if (!checkDailyLimit(acc->accountNumber, amount, "Transfer")) {
         return;
     }
 
@@ -603,3 +772,4 @@ void clearInputBuffer() {
     int c;
     while ((c = getchar()) != '\n' && c != EOF);
 }
+
