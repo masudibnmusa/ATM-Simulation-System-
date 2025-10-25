@@ -11,7 +11,6 @@
 #include <termios.h>
 #include <unistd.h>
 #endif
-
 // Color definitions
 #define COLOR_RESET   "\x1B[0m"
 #define COLOR_RED     "\x1B[31m"
@@ -21,10 +20,10 @@
 #define COLOR_MAGENTA "\x1B[35m"
 #define COLOR_CYAN    "\x1B[36m"
 #define COLOR_WHITE   "\x1B[37m"
-#define COLOR_BRIGHT_RED     "\x1B[91m"
-#define COLOR_BRIGHT_GREEN   "\x1B[92m"
-#define COLOR_BRIGHT_YELLOW  "\x1B[93m"
-#define COLOR_BRIGHT_CYAN    "\x1B[96m"
+#define COLOR_BRIGHT_RED    "\x1B[91m"
+#define COLOR_BRIGHT_GREEN  "\x1B[92m"
+#define COLOR_BRIGHT_YELLOW "\x1B[93m"
+#define COLOR_BRIGHT_CYAN   "\x1B[96m"
 
 void enableConsoleColors() {
 #ifdef _WIN32
@@ -35,6 +34,9 @@ void enableConsoleColors() {
     SetConsoleMode(hOut, dwMode);
 #endif
 }
+#define MAX_LOGIN_ATTEMPTS 3
+#define LOCKOUT_DURATION 300  // 5 minutes in seconds
+#define FILENAME_LOCKOUT "lockout.txt"
 #define MAX_ACCOUNTS 100
 #define FILENAME_ACCOUNTS "accounts.txt"
 #define FILENAME_TRANSACTIONS "transactions.txt"
@@ -56,6 +58,14 @@ typedef struct {
     int transactionCount;
 } DailyLimit;
 
+// Login security record for lockout handling
+typedef struct {
+    int accountNumber;
+    int failedAttempts;
+    time_t lockoutTime;
+    int isLocked;
+} LoginSecurity;
+
 // Function prototypes
 void initializeFiles();
 int loadAccounts(Account accounts[]);
@@ -66,6 +76,16 @@ void withdraw(Account *acc, Account accounts[], int count);
 void checkBalance(Account acc);
 void viewTransactionHistory(int accountNumber);
 void saveTransaction(int accNo, const char *type, float amount);
+// Lockout / login security prototypes
+void initializeLockoutFile();
+int isAccountLocked(int accountNumber);
+void recordFailedAttempt(int accountNumber);
+void unlockAccount(int accountNumber);
+void resetLoginAttempts(int accountNumber);
+int getRemainingLockoutTime(int accountNumber);
+void checkAndAutoUnlock(int accountNumber);
+void displayLockoutStatus(int accountNumber);
+
 void displayMainMenu();
 void displayUserMenu();
 void clearInputBuffer();
@@ -100,7 +120,7 @@ int main() {
     clearScreen();
     printf("%s===================================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
     printf("%s     Welcome to ATM Simulation%s\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
-    printf("%s            Version 6.2%s\n", COLOR_GREEN, COLOR_RESET);
+    printf("%s            Version 7.0%s\n", COLOR_GREEN, COLOR_RESET);
     printf("%s===================================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
     pauseScreen();
 
@@ -128,7 +148,7 @@ int main() {
                     clearScreen();
                     printf("\n%sThank you for using our ATM.%s\n", COLOR_CYAN, COLOR_RESET);
                     printf("%sGoodbye!%s\n", COLOR_GREEN, COLOR_RESET);
-                    printf("%sVersion 6.2%s\n\n", COLOR_YELLOW, COLOR_RESET);
+                    printf("%sVersion 7.0%s\n\n", COLOR_YELLOW, COLOR_RESET);
                     printf("%sDeveloped by Masud%s\n", COLOR_MAGENTA, COLOR_RESET);
                     exit(0);
                 default:
@@ -276,6 +296,8 @@ void initializeFiles() {
     if (file != NULL) {
         fclose(file);
     }
+    // Create lockout file if it doesn't exist
+    initializeLockoutFile();
 }
 
 int loadAccounts(Account accounts[]) {
@@ -326,17 +348,33 @@ int login(Account accounts[], int count, Account *currentAccount) {
     scanf("%d", &accountNumber);
     clearInputBuffer();
 
+    // Check if account is locked
+    checkAndAutoUnlock(accountNumber);  // Try auto-unlock first
+    if (isAccountLocked(accountNumber)) {
+        displayLockoutStatus(accountNumber);
+        return 0;
+    }
+
     printf("%sEnter PIN: %s", COLOR_YELLOW, COLOR_RESET);
     pin = getMaskedPIN();
 
+    // Verify credentials
     for (int i = 0; i < count; i++) {
         if (accounts[i].accountNumber == accountNumber && accounts[i].pin == pin) {
             *currentAccount = accounts[i];
-            return 1;
+            // Reset failed attempts on successful login
+            resetLoginAttempts(accountNumber);
+            return 1; // Successful login
         }
     }
 
-    return 0;
+    // Failed login - record attempt
+    recordFailedAttempt(accountNumber);
+    // Check if account just got locked
+    if (isAccountLocked(accountNumber)) {
+        displayLockoutStatus(accountNumber);
+    }
+    return 0; // Failed login
 }
 
 void deposit(Account *acc, Account accounts[], int count) {
@@ -617,6 +655,202 @@ int checkDailyLimit(int accountNumber, float amount, const char *type) {
     }
 
     return 1; // All checks passed for THIS account
+}
+
+// =============== LOCKOUT / LOGIN SECURITY IMPLEMENTATION ===============
+
+// Initialize lockout file
+void initializeLockoutFile() {
+    FILE *file = fopen(FILENAME_LOCKOUT, "a");
+    if (file != NULL) {
+        fclose(file);
+    }
+}
+
+// Check if account is locked and auto-unlock if time has passed
+int isAccountLocked(int accountNumber) {
+    FILE *file = fopen(FILENAME_LOCKOUT, "r");
+    LoginSecurity record;
+    time_t currentTime = time(NULL);
+    if (file == NULL) {
+        return 0; // Not locked if file doesn't exist
+    }
+    while (fscanf(file, "%d %d %ld %d",
+                  &record.accountNumber,
+                  &record.failedAttempts,
+                  &record.lockoutTime,
+                  &record.isLocked) == 4) {
+        if (record.accountNumber == accountNumber) {
+            fclose(file);
+            if (record.isLocked) {
+                double timeElapsed = difftime(currentTime, record.lockoutTime);
+                if (timeElapsed >= LOCKOUT_DURATION) {
+                    // Auto-unlock
+                    unlockAccount(accountNumber);
+                    return 0; // Not locked anymore
+                }
+                return 1; // Still locked
+            }
+            return 0; // Not locked
+        }
+    }
+    fclose(file);
+    return 0; // Account not found, not locked
+}
+
+// Get remaining lockout time in seconds
+int getRemainingLockoutTime(int accountNumber) {
+    FILE *file = fopen(FILENAME_LOCKOUT, "r");
+    LoginSecurity record;
+    time_t currentTime = time(NULL);
+    if (file == NULL) {
+        return 0;
+    }
+    while (fscanf(file, "%d %d %ld %d",
+                  &record.accountNumber,
+                  &record.failedAttempts,
+                  &record.lockoutTime,
+                  &record.isLocked) == 4) {
+        if (record.accountNumber == accountNumber && record.isLocked) {
+            fclose(file);
+            double timeElapsed = difftime(currentTime, record.lockoutTime);
+            int remainingTime = LOCKOUT_DURATION - (int)timeElapsed;
+            return remainingTime > 0 ? remainingTime : 0;
+        }
+    }
+    fclose(file);
+    return 0;
+}
+
+// Display lockout status with countdown
+void displayLockoutStatus(int accountNumber) {
+    int remainingSeconds = getRemainingLockoutTime(accountNumber);
+    int minutes = remainingSeconds / 60;
+    int seconds = remainingSeconds % 60;
+    clearScreen();
+    printf("\n%s==========================================%s\n", COLOR_BRIGHT_RED, COLOR_RESET);
+    printf("%s          ACCOUNT LOCKED!%s\n", COLOR_BRIGHT_RED, COLOR_RESET);
+    printf("%s==========================================%s\n", COLOR_BRIGHT_RED, COLOR_RESET);
+    printf("\n%sAccount Number: %s%d%s\n", COLOR_CYAN, COLOR_YELLOW, accountNumber, COLOR_RESET);
+    printf("\n%sYour account has been locked due to%s\n", COLOR_RED, COLOR_RESET);
+    printf("%smultiple failed login attempts.%s\n", COLOR_RED, COLOR_RESET);
+    printf("\n%sTime remaining: %s%02d:%02d minutes%s\n",
+           COLOR_CYAN, COLOR_BRIGHT_YELLOW, minutes, seconds, COLOR_RESET);
+    printf("\n%sPlease try again after the lockout period.%s\n", COLOR_YELLOW, COLOR_RESET);
+    printf("%s==========================================%s\n", COLOR_BRIGHT_RED, COLOR_RESET);
+}
+
+// Record a failed login attempt
+void recordFailedAttempt(int accountNumber) {
+    FILE *file = fopen(FILENAME_LOCKOUT, "r");
+    FILE *tempFile = fopen("temp_lockout.txt", "w");
+    LoginSecurity record;
+    int found = 0;
+    time_t currentTime = time(NULL);
+    if (tempFile == NULL) {
+        printf("%sError: Unable to update login attempts!%s\n", COLOR_RED, COLOR_RESET);
+        if (file) fclose(file);
+        return;
+    }
+    if (file != NULL) {
+        while (fscanf(file, "%d %d %ld %d",
+                      &record.accountNumber,
+                      &record.failedAttempts,
+                      &record.lockoutTime,
+                      &record.isLocked) == 4) {
+            if (record.accountNumber == accountNumber) {
+                found = 1;
+                record.failedAttempts++;
+                if (record.failedAttempts >= MAX_LOGIN_ATTEMPTS) {
+                    record.isLocked = 1;
+                    record.lockoutTime = currentTime;
+                }
+            }
+            fprintf(tempFile, "%d %d %ld %d\n",
+                    record.accountNumber,
+                    record.failedAttempts,
+                    record.lockoutTime,
+                    record.isLocked);
+        }
+        fclose(file);
+    }
+    if (!found) {
+        fprintf(tempFile, "%d %d %ld %d\n",
+                accountNumber, 1, currentTime, 0);
+    }
+    fclose(tempFile);
+    remove(FILENAME_LOCKOUT);
+    rename("temp_lockout.txt", FILENAME_LOCKOUT);
+    if (found) {
+        FILE *checkFile = fopen(FILENAME_LOCKOUT, "r");
+        if (checkFile != NULL) {
+            while (fscanf(checkFile, "%d %d %ld %d",
+                          &record.accountNumber,
+                          &record.failedAttempts,
+                          &record.lockoutTime,
+                          &record.isLocked) == 4) {
+                if (record.accountNumber == accountNumber) {
+                    int remainingAttempts = MAX_LOGIN_ATTEMPTS - record.failedAttempts;
+                    if (remainingAttempts > 0) {
+                        printf("\n%sWARNING: Failed login attempt!%s\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
+                        printf("%sRemaining attempts: %s%d%s\n",
+                               COLOR_CYAN, COLOR_BRIGHT_RED, remainingAttempts, COLOR_RESET);
+                        printf("%sAccount will be locked after %d failed attempts.%s\n",
+                               COLOR_YELLOW, MAX_LOGIN_ATTEMPTS, COLOR_RESET);
+                    }
+                    break;
+                }
+            }
+            fclose(checkFile);
+        }
+    }
+}
+
+// Unlock account (called automatically after timeout or manually by admin)
+void unlockAccount(int accountNumber) {
+    FILE *file = fopen(FILENAME_LOCKOUT, "r");
+    FILE *tempFile = fopen("temp_lockout.txt", "w");
+    LoginSecurity record;
+    if (file == NULL || tempFile == NULL) {
+        if (file) fclose(file);
+        if (tempFile) fclose(tempFile);
+        return;
+    }
+    while (fscanf(file, "%d %d %ld %d",
+                  &record.accountNumber,
+                  &record.failedAttempts,
+                  &record.lockoutTime,
+                  &record.isLocked) == 4) {
+        if (record.accountNumber == accountNumber) {
+            record.failedAttempts = 0;
+            record.isLocked = 0;
+            record.lockoutTime = 0;
+        }
+        fprintf(tempFile, "%d %d %ld %d\n",
+                record.accountNumber,
+                record.failedAttempts,
+                record.lockoutTime,
+                record.isLocked);
+    }
+    fclose(file);
+    fclose(tempFile);
+    remove(FILENAME_LOCKOUT);
+    rename("temp_lockout.txt", FILENAME_LOCKOUT);
+}
+
+// Reset login attempts after successful login
+void resetLoginAttempts(int accountNumber) {
+    unlockAccount(accountNumber); // Same functionality
+}
+
+// Check and auto-unlock if time has passed
+void checkAndAutoUnlock(int accountNumber) {
+    if (isAccountLocked(accountNumber)) {
+        int remainingTime = getRemainingLockoutTime(accountNumber);
+        if (remainingTime <= 0) {
+            unlockAccount(accountNumber);
+        }
+    }
 }
 
 void changePIN(Account *acc, Account accounts[], int count) {
