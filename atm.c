@@ -95,11 +95,10 @@ int main() {
 
     // Load existing accounts
     accountCount = loadAccounts(accounts);
-
-    clearScreen();
+clearScreen();
     printf("%s===================================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
     printf("%s     Welcome to ATM Simulation%s\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
-    printf("%s            Version 6.0%s\n", COLOR_GREEN, COLOR_RESET);
+    printf("%s            Version 6.1%s\n", COLOR_GREEN, COLOR_RESET);
     printf("%s===================================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
     pauseScreen();
 
@@ -127,7 +126,7 @@ int main() {
                     clearScreen();
                     printf("\n%sThank you for using our ATM.%s\n", COLOR_CYAN, COLOR_RESET);
                     printf("%sGoodbye!%s\n", COLOR_GREEN, COLOR_RESET);
-                    printf("%sVersion 6.0%s\n\n", COLOR_YELLOW, COLOR_RESET);
+                    printf("%sVersion 6.1%s\n\n", COLOR_YELLOW, COLOR_RESET);
                     printf("%sDeveloped by Masud%s\n", COLOR_MAGENTA, COLOR_RESET);
                     exit(0);
                 default:
@@ -552,21 +551,24 @@ int getTodayTransactionCount(int accountNumber) {
 }
 
 int checkDailyLimit(int accountNumber, float amount, const char *type) {
+    // Get limits specifically for THIS account number
     float todayWithdrawal = getTodayWithdrawal(accountNumber);
     int todayTransactions = getTodayTransactionCount(accountNumber);
 
+    // Check transaction count limit for THIS account
     if (todayTransactions >= MAX_DAILY_TRANSACTIONS) {
         clearScreen();
         printf("\n%s========================================%s\n", COLOR_BRIGHT_RED, COLOR_RESET);
         printf("%sDAILY TRANSACTION LIMIT REACHED!%s\n", COLOR_BRIGHT_RED, COLOR_RESET);
         printf("%s========================================%s\n", COLOR_BRIGHT_RED, COLOR_RESET);
-        printf("%sYou have reached the maximum number of%s\n", COLOR_RED, COLOR_RESET);
-        printf("%stransactions allowed per day (%s%d%s).%s\n", COLOR_RED, COLOR_YELLOW, MAX_DAILY_TRANSACTIONS, COLOR_RED, COLOR_RESET);
+        printf("%sAccount %s%d%s has reached the maximum%s\n", COLOR_RED, COLOR_YELLOW, accountNumber, COLOR_RED, COLOR_RESET);
+        printf("%snumber of transactions per day (%s%d%s).%s\n", COLOR_RED, COLOR_YELLOW, MAX_DAILY_TRANSACTIONS, COLOR_RED, COLOR_RESET);
         printf("%sCurrent transactions today: %s%d%s\n", COLOR_CYAN, COLOR_YELLOW, todayTransactions, COLOR_RESET);
         printf("%sPlease try again tomorrow.%s\n", COLOR_YELLOW, COLOR_RESET);
         return 0;
     }
 
+    // Check single withdrawal limit
     if (strcmp(type, "Withdraw") == 0) {
         if (amount > MAX_SINGLE_WITHDRAWAL) {
             clearScreen();
@@ -591,12 +593,14 @@ int checkDailyLimit(int accountNumber, float amount, const char *type) {
         }
     }
 
+    // Check daily withdrawal limit for THIS account
     if (strcmp(type, "Withdraw") == 0 || strcmp(type, "Transfer") == 0) {
         if (todayWithdrawal + amount > MAX_DAILY_WITHDRAWAL) {
             clearScreen();
             printf("\n%s========================================%s\n", COLOR_BRIGHT_RED, COLOR_RESET);
             printf("%sDAILY WITHDRAWAL LIMIT EXCEEDED!%s\n", COLOR_BRIGHT_RED, COLOR_RESET);
             printf("%s========================================%s\n", COLOR_BRIGHT_RED, COLOR_RESET);
+            printf("%sAccount: %s%d%s\n", COLOR_CYAN, COLOR_YELLOW, accountNumber, COLOR_RESET);
             printf("%sDaily withdrawal limit: %s$%.2f%s\n", COLOR_CYAN, COLOR_WHITE, MAX_DAILY_WITHDRAWAL, COLOR_RESET);
             printf("%sAlready withdrawn today: %s$%.2f%s\n", COLOR_CYAN, COLOR_YELLOW, todayWithdrawal, COLOR_RESET);
             printf("%sRemaining limit: %s$%.2f%s\n", COLOR_CYAN, COLOR_GREEN, MAX_DAILY_WITHDRAWAL - todayWithdrawal, COLOR_RESET);
@@ -605,7 +609,7 @@ int checkDailyLimit(int accountNumber, float amount, const char *type) {
         }
     }
 
-    return 1;
+    return 1; // All checks passed for THIS account
 }
 
 void changePIN(Account *acc, Account accounts[], int count) {
