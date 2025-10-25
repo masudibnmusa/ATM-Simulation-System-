@@ -2,12 +2,39 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <math.h>
 #ifdef _WIN32
 #include <conio.h>
+#include <windows.h>
+#define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
 #else
 #include <termios.h>
 #include <unistd.h>
 #endif
+
+// Color definitions
+#define COLOR_RESET   "\x1B[0m"
+#define COLOR_RED     "\x1B[31m"
+#define COLOR_GREEN   "\x1B[32m"
+#define COLOR_YELLOW  "\x1B[33m"
+#define COLOR_BLUE    "\x1B[34m"
+#define COLOR_MAGENTA "\x1B[35m"
+#define COLOR_CYAN    "\x1B[36m"
+#define COLOR_WHITE   "\x1B[37m"
+#define COLOR_BRIGHT_RED     "\x1B[91m"
+#define COLOR_BRIGHT_GREEN   "\x1B[92m"
+#define COLOR_BRIGHT_YELLOW  "\x1B[93m"
+#define COLOR_BRIGHT_CYAN    "\x1B[96m"
+
+void enableConsoleColors() {
+#ifdef _WIN32
+    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    DWORD dwMode = 0;
+    GetConsoleMode(hOut, &dwMode);
+    dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+    SetConsoleMode(hOut, dwMode);
+#endif
+}
 #define MAX_ACCOUNTS 100
 #define FILENAME_ACCOUNTS "accounts.txt"
 #define FILENAME_TRANSACTIONS "transactions.txt"
@@ -60,6 +87,9 @@ int main() {
     int choice;
     int loggedIn = 0;
 
+    // Enable console colors
+    enableConsoleColors();
+
     // Initialize files if they don't exist
     initializeFiles();
 
@@ -67,17 +97,17 @@ int main() {
     accountCount = loadAccounts(accounts);
 
     clearScreen();
-    printf("===================================\n");
-    printf(" Welcome to ATM Simulation System\n");
-    printf("            version 5.0"          "\n");
-    printf("===================================\n");
+    printf("%s===================================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
+    printf("%s     Welcome to ATM Simulation%s\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
+    printf("%s            Version 6.0%s\n", COLOR_GREEN, COLOR_RESET);
+    printf("%s===================================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
     pauseScreen();
 
     while (1) {
         clearScreen();
         if (!loggedIn) {
             displayMainMenu();
-            printf("Enter your choice: ");
+            printf("%sEnter your choice: %s", COLOR_WHITE, COLOR_RESET);
             scanf("%d", &choice);
             clearInputBuffer();
 
@@ -86,24 +116,27 @@ int main() {
                     clearScreen();
                     if (login(accounts, accountCount, &currentAccount)) {
                         loggedIn = 1;
-                        printf("\n Login successful! Welcome, %s!\n", currentAccount.name);
+                        printf("\n%sLogin successful! Welcome, %s!%s\n", COLOR_BRIGHT_GREEN, currentAccount.name, COLOR_RESET);
                         pauseScreen();
                     } else {
-                        printf("\n Login failed! Invalid account number or PIN.\n");
+                        printf("\n%sLogin failed! Invalid account number or PIN.%s\n", COLOR_BRIGHT_RED, COLOR_RESET);
                         pauseScreen();
                     }
                     break;
                 case 2:
                     clearScreen();
-                    printf("\n Thank you for using our ATM.\n Goodbye!\n Version 5.0\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nDeveloped by Masud\n ");
+                    printf("\n%sThank you for using our ATM.%s\n", COLOR_CYAN, COLOR_RESET);
+                    printf("%sGoodbye!%s\n", COLOR_GREEN, COLOR_RESET);
+                    printf("%sVersion 6.0%s\n\n", COLOR_YELLOW, COLOR_RESET);
+                    printf("%sDeveloped by Masud%s\n", COLOR_MAGENTA, COLOR_RESET);
                     exit(0);
                 default:
-                    printf("\n Invalid choice! Please try again.\n");
+                    printf("\n%sInvalid choice! Please try again.%s\n", COLOR_RED, COLOR_RESET);
                     pauseScreen();
             }
         } else {
             displayUserMenu();
-            printf("Enter your choice: ");
+            printf("%sEnter your choice: %s", COLOR_WHITE, COLOR_RESET);
             scanf("%d", &choice);
             clearInputBuffer();
 
@@ -141,11 +174,11 @@ int main() {
                 case 7:
                     clearScreen();
                     loggedIn = 0;
-                    printf("\n Logged out successfully!\n");
+                    printf("\n%sLogged out successfully!%s\n", COLOR_GREEN, COLOR_RESET);
                     pauseScreen();
                     break;
                 default:
-                    printf("\n Invalid choice! Please try again.\n");
+                    printf("\n%sInvalid choice! Please try again.%s\n", COLOR_RED, COLOR_RESET);
                     pauseScreen();
             }
         }
@@ -172,7 +205,7 @@ int getMaskedPIN() {
             printf("\b \b");
         } else if (ch >= '0' && ch <= '9' && pinLength < 10) {
             pinStr[pinLength++] = ch;
-            printf("*");
+            printf("%s*%s", COLOR_YELLOW, COLOR_RESET);
         }
     }
 #else
@@ -197,7 +230,7 @@ int getMaskedPIN() {
             fflush(stdout);
         } else if (ch >= '0' && ch <= '9' && pinLength < 10) {
             pinStr[pinLength++] = ch;
-            printf("*");
+            printf("%s*%s", COLOR_YELLOW, COLOR_RESET);
             fflush(stdout);
         }
     }
@@ -219,7 +252,7 @@ void clearScreen() {
 }
 
 void pauseScreen() {
-    printf("\nPress Enter to continue...");
+    printf("\n%sPress Enter to continue...%s", COLOR_CYAN, COLOR_RESET);
     getchar();
 }
 
@@ -264,7 +297,7 @@ void saveAccounts(Account accounts[], int count) {
     FILE *file = fopen(FILENAME_ACCOUNTS, "w");
 
     if (file == NULL) {
-        printf(" Error saving accounts!\n");
+        printf("%sError saving accounts!%s\n", COLOR_RED, COLOR_RESET);
         return;
     }
 
@@ -282,12 +315,12 @@ void saveAccounts(Account accounts[], int count) {
 int login(Account accounts[], int count, Account *currentAccount) {
     int accountNumber, pin;
 
-    printf("\n ===============Login===============\n");
-    printf("Enter account number: ");
+    printf("\n%s=================== Login ===================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
+    printf("%sEnter account number: %s", COLOR_YELLOW, COLOR_RESET);
     scanf("%d", &accountNumber);
     clearInputBuffer();
 
-    printf("Enter PIN: ");
+    printf("%sEnter PIN: %s", COLOR_YELLOW, COLOR_RESET);
     pin = getMaskedPIN();
 
     for (int i = 0; i < count; i++) {
@@ -303,13 +336,13 @@ int login(Account accounts[], int count, Account *currentAccount) {
 void deposit(Account *acc, Account accounts[], int count) {
     float amount;
 
-    printf("\n===============Deposit===============\n");
-    printf("\nEnter amount to deposit: ");
+    printf("\n%s=============== Deposit ===============%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
+    printf("\n%sEnter amount to deposit: %s$", COLOR_YELLOW, COLOR_RESET);
     scanf("%f", &amount);
     clearInputBuffer();
 
     if (amount <= 0) {
-        printf("\nInvalid amount! Amount must be positive.\n");
+        printf("\n%sInvalid amount! Amount must be positive.%s\n", COLOR_RED, COLOR_RESET);
         return;
     }
 
@@ -329,25 +362,26 @@ void deposit(Account *acc, Account accounts[], int count) {
     // Save transaction
     saveTransaction(acc->accountNumber, "Deposit", amount);
 
-    printf("\nDeposit successful! \n\nNew balance: $%.2f\n", acc->balance);
+    printf("\n%sDeposit successful!%s\n", COLOR_BRIGHT_GREEN, COLOR_RESET);
+    printf("\n%sNew balance: %s$%.2f%s\n", COLOR_CYAN, COLOR_BRIGHT_GREEN, acc->balance, COLOR_RESET);
 }
 
 void withdraw(Account *acc, Account accounts[], int count) {
     float amount;
 
-    printf("\n===============Withdraw===============\n");
-    printf("Daily Withdrawal Limit: $%.2f\n", MAX_DAILY_WITHDRAWAL);
-    printf("Single Withdrawal Limit: $%.2f\n", MAX_SINGLE_WITHDRAWAL);
-    printf("Already withdrawn today: $%.2f\n", getTodayWithdrawal(acc->accountNumber));
-    printf("Transactions today: %d/%d\n", getTodayTransactionCount(acc->accountNumber), MAX_DAILY_TRANSACTIONS);
-    printf("======================================\n");
+    printf("\n%s=============== Withdraw ===============%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
+    printf("%sDaily Withdrawal Limit: %s$%.2f%s\n", COLOR_CYAN, COLOR_WHITE, MAX_DAILY_WITHDRAWAL, COLOR_RESET);
+    printf("%sSingle Withdrawal Limit: %s$%.2f%s\n", COLOR_CYAN, COLOR_WHITE, MAX_SINGLE_WITHDRAWAL, COLOR_RESET);
+    printf("%sAlready withdrawn today: %s$%.2f%s\n", COLOR_CYAN, COLOR_YELLOW, getTodayWithdrawal(acc->accountNumber), COLOR_RESET);
+    printf("%sTransactions today: %s%d/%d%s\n", COLOR_CYAN, COLOR_YELLOW, getTodayTransactionCount(acc->accountNumber), MAX_DAILY_TRANSACTIONS, COLOR_RESET);
+    printf("%s========================================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
 
-    printf("Enter amount to withdraw: ");
+    printf("%sEnter amount to withdraw: %s$", COLOR_YELLOW, COLOR_RESET);
     scanf("%f", &amount);
     clearInputBuffer();
 
     if (amount <= 0) {
-        printf("\nInvalid amount! Amount must be positive.\n");
+        printf("\n%sInvalid amount! Amount must be positive.%s\n", COLOR_RED, COLOR_RESET);
         return;
     }
 
@@ -357,7 +391,8 @@ void withdraw(Account *acc, Account accounts[], int count) {
     }
 
     if (amount > acc->balance) {
-        printf("\n\nInsufficient funds!\n\n Current balance: $%.2f\n", acc->balance);
+        printf("\n%sInsufficient funds!%s\n", COLOR_BRIGHT_RED, COLOR_RESET);
+        printf("%sCurrent balance: %s$%.2f%s\n", COLOR_CYAN, COLOR_YELLOW, acc->balance, COLOR_RESET);
         return;
     }
 
@@ -377,14 +412,16 @@ void withdraw(Account *acc, Account accounts[], int count) {
     // Save transaction
     saveTransaction(acc->accountNumber, "Withdraw", amount);
 
-    printf("\n\nWithdrawal successful! \n\nNew balance: $%.2f\n", acc->balance);
+    printf("\n%sWithdrawal successful!%s\n", COLOR_BRIGHT_GREEN, COLOR_RESET);
+    printf("\n%sNew balance: %s$%.2f%s\n", COLOR_CYAN, COLOR_BRIGHT_GREEN, acc->balance, COLOR_RESET);
 }
 
 void checkBalance(Account acc) {
-    printf("\n===============Balance Inquiry===============\n");
-    printf("Account Holder: %s\n", acc.name);
-    printf("Account Number: %d\n", acc.accountNumber);
-    printf("Current Balance: $%.2f\n", acc.balance);
+    printf("\n%s================ Balance Inquiry ================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
+    printf("%sAccount Holder: %s%s%s\n", COLOR_CYAN, COLOR_BRIGHT_YELLOW, acc.name, COLOR_RESET);
+    printf("%sAccount Number: %s%d%s\n", COLOR_CYAN, COLOR_WHITE, acc.accountNumber, COLOR_RESET);
+    printf("%sCurrent Balance: %s$%.2f%s\n", COLOR_CYAN, COLOR_BRIGHT_GREEN, acc.balance, COLOR_RESET);
+    printf("%s================================================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
 }
 
 void viewTransactionHistory(int accountNumber) {
@@ -392,32 +429,40 @@ void viewTransactionHistory(int accountNumber) {
     char line[200];
     int found = 0;
     int currentAccNo;
-    char type[20];
+    char type[50];
     float amount;
     char date[20];
     char time[20];
 
-    printf("==========================================\n");
-    printf(" Transaction History for Account: %d\n", accountNumber);
-    printf("==========================================\n");
+    printf("%s==========================================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
+    printf("%sTransaction History for Account: %s%d%s\n", COLOR_CYAN, COLOR_BRIGHT_YELLOW, accountNumber, COLOR_RESET);
+    printf("%s==========================================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
 
     if (file == NULL) {
-        printf(" No transaction history available.\n");
+        printf("%sNo transaction history available.%s\n", COLOR_RED, COLOR_RESET);
         return;
     }
 
     while (fgets(line, sizeof(line), file)) {
-        // FIXED: Read with separate date and time fields
-        if (sscanf(line, "%d %19s %f %19s %19s", &currentAccNo, type, &amount, date, time) == 5) {
+        if (sscanf(line, "%d %49s %f %19s %19s", &currentAccNo, type, &amount, date, time) == 5) {
             if (currentAccNo == accountNumber) {
-                printf("%s %s - %s: $%.2f\n", date, time, type, amount);
+                printf("%s%s %s%s - ", COLOR_CYAN, date, time, COLOR_RESET);
+
+                // Color code based on transaction type
+                if (strstr(type, "Deposit") || strstr(type, "Transfer_from")) {
+                    printf("%s%s: %s$%.2f%s\n", COLOR_GREEN, type, COLOR_BRIGHT_GREEN, amount, COLOR_RESET);
+                } else if (strstr(type, "Withdraw") || strstr(type, "Transfer_to")) {
+                    printf("%s%s: %s$%.2f%s\n", COLOR_YELLOW, type, COLOR_BRIGHT_YELLOW, amount, COLOR_RESET);
+                } else {
+                    printf("%s%s: %s$%.2f%s\n", COLOR_WHITE, type, COLOR_WHITE, amount, COLOR_RESET);
+                }
                 found = 1;
             }
         }
     }
 
     if (!found) {
-        printf("No transactions found for this account.\n");
+        printf("%sNo transactions found for this account.%s\n", COLOR_YELLOW, COLOR_RESET);
     }
 
     fclose(file);
@@ -431,21 +476,17 @@ void saveTransaction(int accNo, const char *type, float amount) {
     char time[20];
 
     if (file == NULL) {
-        printf(" Error saving transaction!\n");
+        printf("%sError saving transaction!%s\n", COLOR_RED, COLOR_RESET);
         return;
     }
 
-    // FIXED: Format date and time separately
     strftime(date, sizeof(date), "%Y-%m-%d", tm_info);
     strftime(time, sizeof(time), "%H:%M:%S", tm_info);
 
-    // Save with space-separated format
     fprintf(file, "%d %s %.2f %s %s\n", accNo, type, amount, date, time);
     fclose(file);
 }
-// Implementation of transaction limit functions
 
-// Get today's total withdrawal amount for an account
 float getTodayWithdrawal(int accountNumber) {
     FILE *file = fopen(FILENAME_TRANSACTIONS, "r");
     char line[200];
@@ -456,7 +497,6 @@ float getTodayWithdrawal(int accountNumber) {
     char transTime[20];
     float totalWithdrawn = 0.0;
 
-    // Get today's date
     time_t t = time(NULL);
     struct tm *tm_info = localtime(&t);
     char today[20];
@@ -469,7 +509,6 @@ float getTodayWithdrawal(int accountNumber) {
     while (fgets(line, sizeof(line), file)) {
         if (sscanf(line, "%d %19s %f %19s %19s", &accNo, type, &amount, transDate, transTime) == 5) {
             if (accNo == accountNumber && strcmp(transDate, today) == 0) {
-                // Count withdrawals and transfers (outgoing money)
                 if (strcmp(type, "Withdraw") == 0 || strncmp(type, "Transfer_to_", 12) == 0) {
                     totalWithdrawn += amount;
                 }
@@ -481,7 +520,6 @@ float getTodayWithdrawal(int accountNumber) {
     return totalWithdrawn;
 }
 
-// Get today's transaction count for an account
 int getTodayTransactionCount(int accountNumber) {
     FILE *file = fopen(FILENAME_TRANSACTIONS, "r");
     char line[200];
@@ -492,7 +530,6 @@ int getTodayTransactionCount(int accountNumber) {
     char transTime[20];
     int count = 0;
 
-    // Get today's date
     time_t t = time(NULL);
     struct tm *tm_info = localtime(&t);
     char today[20];
@@ -514,109 +551,99 @@ int getTodayTransactionCount(int accountNumber) {
     return count;
 }
 
-// Check if transaction is within daily limits
 int checkDailyLimit(int accountNumber, float amount, const char *type) {
     float todayWithdrawal = getTodayWithdrawal(accountNumber);
     int todayTransactions = getTodayTransactionCount(accountNumber);
 
-    // Check transaction count limit
     if (todayTransactions >= MAX_DAILY_TRANSACTIONS) {
         clearScreen();
-        printf("\n========================================\n");
-        printf("DAILY TRANSACTION LIMIT REACHED!\n");
-        printf("========================================\n");
-        printf("You have reached the maximum number of\n");
-        printf("transactions allowed per day (%d).\n", MAX_DAILY_TRANSACTIONS);
-        printf("Current transactions today: %d\n", todayTransactions);
-        printf("Please try again tomorrow.\n");
+        printf("\n%s========================================%s\n", COLOR_BRIGHT_RED, COLOR_RESET);
+        printf("%sDAILY TRANSACTION LIMIT REACHED!%s\n", COLOR_BRIGHT_RED, COLOR_RESET);
+        printf("%s========================================%s\n", COLOR_BRIGHT_RED, COLOR_RESET);
+        printf("%sYou have reached the maximum number of%s\n", COLOR_RED, COLOR_RESET);
+        printf("%stransactions allowed per day (%s%d%s).%s\n", COLOR_RED, COLOR_YELLOW, MAX_DAILY_TRANSACTIONS, COLOR_RED, COLOR_RESET);
+        printf("%sCurrent transactions today: %s%d%s\n", COLOR_CYAN, COLOR_YELLOW, todayTransactions, COLOR_RESET);
+        printf("%sPlease try again tomorrow.%s\n", COLOR_YELLOW, COLOR_RESET);
         return 0;
     }
 
-    // Check single transaction limits
     if (strcmp(type, "Withdraw") == 0) {
         if (amount > MAX_SINGLE_WITHDRAWAL) {
             clearScreen();
-            printf("\n========================================\n");
-            printf("SINGLE WITHDRAWAL LIMIT EXCEEDED!\n");
-            printf("========================================\n");
-            printf("Maximum withdrawal per transaction: $%.2f\n", MAX_SINGLE_WITHDRAWAL);
-            printf("Your requested amount: $%.2f\n", amount);
+            printf("\n%s========================================%s\n", COLOR_BRIGHT_RED, COLOR_RESET);
+            printf("%sSINGLE WITHDRAWAL LIMIT EXCEEDED!%s\n", COLOR_BRIGHT_RED, COLOR_RESET);
+            printf("%s========================================%s\n", COLOR_BRIGHT_RED, COLOR_RESET);
+            printf("%sMaximum withdrawal per transaction: %s$%.2f%s\n", COLOR_CYAN, COLOR_WHITE, MAX_SINGLE_WITHDRAWAL, COLOR_RESET);
+            printf("%sYour requested amount: %s$%.2f%s\n", COLOR_CYAN, COLOR_YELLOW, amount, COLOR_RESET);
             pauseScreen();
             return 0;
         }
     } else if (strcmp(type, "Transfer") == 0) {
         if (amount > MAX_SINGLE_TRANSFER) {
             clearScreen();
-            printf("\n========================================\n");
-            printf("SINGLE TRANSFER LIMIT EXCEEDED!\n");
-            printf("========================================\n");
-            printf("Maximum transfer per transaction: $%.2f\n", MAX_SINGLE_TRANSFER);
-            printf("Your requested amount: $%.2f\n", amount);
+            printf("\n%s========================================%s\n", COLOR_BRIGHT_RED, COLOR_RESET);
+            printf("%sSINGLE TRANSFER LIMIT EXCEEDED!%s\n", COLOR_BRIGHT_RED, COLOR_RESET);
+            printf("%s========================================%s\n", COLOR_BRIGHT_RED, COLOR_RESET);
+            printf("%sMaximum transfer per transaction: %s$%.2f%s\n", COLOR_CYAN, COLOR_WHITE, MAX_SINGLE_TRANSFER, COLOR_RESET);
+            printf("%sYour requested amount: %s$%.2f%s\n", COLOR_CYAN, COLOR_YELLOW, amount, COLOR_RESET);
             pauseScreen();
             return 0;
         }
     }
 
-    // Check daily withdrawal limit (for withdrawals and transfers)
     if (strcmp(type, "Withdraw") == 0 || strcmp(type, "Transfer") == 0) {
         if (todayWithdrawal + amount > MAX_DAILY_WITHDRAWAL) {
             clearScreen();
-            printf("\n========================================\n");
-            printf("DAILY WITHDRAWAL LIMIT EXCEEDED!\n");
-            printf("========================================\n");
-            printf("Daily withdrawal limit: $%.2f\n", MAX_DAILY_WITHDRAWAL);
-            printf("Already withdrawn today: $%.2f\n", todayWithdrawal);
-            printf("Remaining limit: $%.2f\n", MAX_DAILY_WITHDRAWAL - todayWithdrawal);
-            printf("Your requested amount: $%.2f\n", amount);
+            printf("\n%s========================================%s\n", COLOR_BRIGHT_RED, COLOR_RESET);
+            printf("%sDAILY WITHDRAWAL LIMIT EXCEEDED!%s\n", COLOR_BRIGHT_RED, COLOR_RESET);
+            printf("%s========================================%s\n", COLOR_BRIGHT_RED, COLOR_RESET);
+            printf("%sDaily withdrawal limit: %s$%.2f%s\n", COLOR_CYAN, COLOR_WHITE, MAX_DAILY_WITHDRAWAL, COLOR_RESET);
+            printf("%sAlready withdrawn today: %s$%.2f%s\n", COLOR_CYAN, COLOR_YELLOW, todayWithdrawal, COLOR_RESET);
+            printf("%sRemaining limit: %s$%.2f%s\n", COLOR_CYAN, COLOR_GREEN, MAX_DAILY_WITHDRAWAL - todayWithdrawal, COLOR_RESET);
+            printf("%sYour requested amount: %s$%.2f%s\n", COLOR_CYAN, COLOR_YELLOW, amount, COLOR_RESET);
             return 0;
         }
     }
 
-    return 1; // All checks passed
+    return 1;
 }
+
 void changePIN(Account *acc, Account accounts[], int count) {
     int oldPin, newPin, confirmPin;
 
-    printf("\n===============Change PIN===============\n");
+    printf("\n%s=============== Change PIN ===============%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
 
-    // Verify current PIN
-    printf("Enter current PIN: ");
+    printf("%sEnter current PIN: %s", COLOR_YELLOW, COLOR_RESET);
     oldPin = getMaskedPIN();
 
     if (oldPin != acc->pin) {
-        printf("\nIncorrect current PIN! PIN change failed.\n");
+        printf("\n%sIncorrect current PIN! PIN change failed.%s\n", COLOR_RED, COLOR_RESET);
         return;
     }
 
-    // Get new PIN
-    printf("Enter new PIN (4-6 digits): ");
+    printf("%sEnter new PIN (4-6 digits): %s", COLOR_YELLOW, COLOR_RESET);
     newPin = getMaskedPIN();
 
-    // Validate new PIN
     if (newPin < 1000 || newPin > 999999) {
-        printf("\nInvalid PIN! PIN must be between 4-6 digits.\n");
+        printf("\n%sInvalid PIN! PIN must be between 4-6 digits.%s\n", COLOR_RED, COLOR_RESET);
         return;
     }
 
-    // Check if new PIN is same as old PIN
     if (newPin == oldPin) {
-        printf("\nNew PIN cannot be the same as current PIN!\n");
+        printf("\n%sNew PIN cannot be the same as current PIN!%s\n", COLOR_RED, COLOR_RESET);
         return;
     }
 
-    // Confirm new PIN
-    printf("Confirm new PIN: ");
+    printf("%sConfirm new PIN: %s", COLOR_YELLOW, COLOR_RESET);
     confirmPin = getMaskedPIN();
 
     if (newPin != confirmPin) {
-        printf("\nPINs do not match! PIN change failed.\n");
+        printf("\n%sPINs do not match! PIN change failed.%s\n", COLOR_RED, COLOR_RESET);
         return;
     }
 
-    // Update PIN in current account
     acc->pin = newPin;
 
-    // Update PIN in accounts array
     for (int i = 0; i < count; i++) {
         if (accounts[i].accountNumber == acc->accountNumber) {
             accounts[i].pin = newPin;
@@ -624,41 +651,36 @@ void changePIN(Account *acc, Account accounts[], int count) {
         }
     }
 
-    // Save updated accounts to file
     saveAccounts(accounts, count);
-
-    // Log the PIN change transaction
     saveTransaction(acc->accountNumber, "PIN_Change", 0.00);
 
-    printf("\n\nPIN changed successfully!\n");
-    printf("Please remember your new PIN.\n");
+    printf("\n%sPIN changed successfully!%s\n", COLOR_BRIGHT_GREEN, COLOR_RESET);
+    printf("%sPlease remember your new PIN.%s\n", COLOR_CYAN, COLOR_RESET);
 }
+
 void fundTransfer(Account *acc, Account accounts[], int count) {
     int recipientAccountNumber;
     float amount;
     int recipientIndex = -1;
     char confirm;
 
-    printf("\n===============Fund Transfer===============\n");
-    printf("Daily Withdrawal Limit: $%.2f\n", MAX_DAILY_WITHDRAWAL);
-    printf("Single Transfer Limit: $%.2f\n", MAX_SINGLE_TRANSFER);
-    printf("Already withdrawn today: $%.2f\n", getTodayWithdrawal(acc->accountNumber));
-    printf("Transactions today: %d/%d\n", getTodayTransactionCount(acc->accountNumber), MAX_DAILY_TRANSACTIONS);
+    printf("\n%s=============== Fund Transfer ===============%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
+    printf("%sDaily Withdrawal Limit: %s$%.2f%s\n", COLOR_CYAN, COLOR_WHITE, MAX_DAILY_WITHDRAWAL, COLOR_RESET);
+    printf("%sSingle Transfer Limit: %s$%.2f%s\n", COLOR_CYAN, COLOR_WHITE, MAX_SINGLE_TRANSFER, COLOR_RESET);
+    printf("%sAlready withdrawn today: %s$%.2f%s\n", COLOR_CYAN, COLOR_YELLOW, getTodayWithdrawal(acc->accountNumber), COLOR_RESET);
+    printf("%sTransactions today: %s%d/%d%s\n", COLOR_CYAN, COLOR_YELLOW, getTodayTransactionCount(acc->accountNumber), MAX_DAILY_TRANSACTIONS, COLOR_RESET);
     pauseScreen();
 
-    // Get recipient account number
     clearScreen();
-    printf("Enter recipient account number: ");
+    printf("%sEnter recipient account number: %s", COLOR_YELLOW, COLOR_RESET);
     scanf("%d", &recipientAccountNumber);
     clearInputBuffer();
 
-    // Check if trying to transfer to own account
     if (recipientAccountNumber == acc->accountNumber) {
-        printf("\nError: Cannot transfer to your own account!\n");
+        printf("\n%sError: Cannot transfer to your own account!%s\n", COLOR_RED, COLOR_RESET);
         return;
     }
 
-    // Find recipient account
     for (int i = 0; i < count; i++) {
         if (accounts[i].accountNumber == recipientAccountNumber) {
             recipientIndex = i;
@@ -667,60 +689,52 @@ void fundTransfer(Account *acc, Account accounts[], int count) {
     }
 
     if (recipientIndex == -1) {
-        printf("\nError: Recipient account not found!\n");
+        printf("\n%sError: Recipient account not found!%s\n", COLOR_RED, COLOR_RESET);
         return;
     }
 
-    // Display recipient name for confirmation
-    printf("\nRecipient: %s\n", accounts[recipientIndex].name);
-    printf("Recipient Account: %d\n", recipientAccountNumber);
+    printf("\n%sRecipient: %s%s%s\n", COLOR_CYAN, COLOR_BRIGHT_YELLOW, accounts[recipientIndex].name, COLOR_RESET);
+    printf("%sRecipient Account: %s%d%s\n", COLOR_CYAN, COLOR_WHITE, recipientAccountNumber, COLOR_RESET);
 
-    // Get transfer amount
-    printf("\nEnter amount to transfer: $");
+    printf("\n%sEnter amount to transfer: %s$", COLOR_YELLOW, COLOR_RESET);
     scanf("%f", &amount);
     clearInputBuffer();
 
-    // Validate amount
     if (amount <= 0) {
-        printf("\nInvalid amount! Amount must be positive.\n");
+        printf("\n%sInvalid amount! Amount must be positive.%s\n", COLOR_RED, COLOR_RESET);
         return;
     }
 
-    // Check transaction limits
     if (!checkDailyLimit(acc->accountNumber, amount, "Transfer")) {
         return;
     }
 
-    // Check sufficient balance
     if (amount > acc->balance) {
-        printf("\nInsufficient funds!\n");
-        printf("Your current balance: $%.2f\n", acc->balance);
-        printf("Transfer amount: $%.2f\n", amount);
+        printf("\n%sInsufficient funds!%s\n", COLOR_BRIGHT_RED, COLOR_RESET);
+        printf("%sYour current balance: %s$%.2f%s\n", COLOR_CYAN, COLOR_YELLOW, acc->balance, COLOR_RESET);
+        printf("%sTransfer amount: %s$%.2f%s\n", COLOR_CYAN, COLOR_YELLOW, amount, COLOR_RESET);
         return;
     }
 
-    // Confirm transfer
     clearScreen();
-    printf("\n--- Transfer Summary ---\n");
-    printf("From: %s (Account: %d)\n", acc->name, acc->accountNumber);
-    printf("To: %s (Account: %d)\n", accounts[recipientIndex].name, recipientAccountNumber);
-    printf("Amount: $%.2f\n", amount);
-    printf("\nYour new balance will be: $%.2f\n", acc->balance - amount);
-    printf("\nConfirm transfer? (y/n): ");
+    printf("\n%s--- Transfer Summary ---%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
+    printf("%sFrom: %s%s %s(%sAccount: %s%d%s)%s\n", COLOR_CYAN, COLOR_BRIGHT_YELLOW, acc->name, COLOR_CYAN, COLOR_RESET, COLOR_WHITE, acc->accountNumber, COLOR_CYAN, COLOR_RESET);
+    printf("%sTo: %s%s %s(%sAccount: %s%d%s)%s\n", COLOR_CYAN, COLOR_BRIGHT_YELLOW, accounts[recipientIndex].name, COLOR_CYAN, COLOR_RESET, COLOR_WHITE, recipientAccountNumber, COLOR_CYAN, COLOR_RESET);
+    printf("%sAmount: %s$%.2f%s\n", COLOR_CYAN, COLOR_BRIGHT_GREEN, amount, COLOR_RESET);
+    printf("\n%sYour new balance will be: %s$%.2f%s\n", COLOR_CYAN, COLOR_YELLOW, acc->balance - amount, COLOR_RESET);
+    printf("\n%sConfirm transfer? (y/n): %s", COLOR_YELLOW, COLOR_RESET);
     scanf("%c", &confirm);
     clearInputBuffer();
 
     if (confirm != 'y' && confirm != 'Y') {
         clearScreen();
-        printf("\nTransfer cancelled.\n");
+        printf("\n%sTransfer cancelled.%s\n", COLOR_YELLOW, COLOR_RESET);
         return;
     }
 
-    // Perform transfer
     acc->balance -= amount;
     accounts[recipientIndex].balance += amount;
 
-    // Update sender account in array
     for (int i = 0; i < count; i++) {
         if (accounts[i].accountNumber == acc->accountNumber) {
             accounts[i].balance = acc->balance;
@@ -728,48 +742,45 @@ void fundTransfer(Account *acc, Account accounts[], int count) {
         }
     }
 
-    // Save updated accounts to file
     saveAccounts(accounts, count);
 
-    // Save transactions for both accounts
     char transactionDesc[50];
 
-    // Save sender transaction
     sprintf(transactionDesc, "Transfer_to_%d", recipientAccountNumber);
     saveTransaction(acc->accountNumber, transactionDesc, amount);
 
-    // Save recipient transaction
     sprintf(transactionDesc, "Transfer_from_%d", acc->accountNumber);
     saveTransaction(recipientAccountNumber, transactionDesc, amount);
 
     clearScreen();
-    printf("\n========================================\n");
-    printf("         Transfer successful!\n");
-    printf("========================================\n");
-    printf("Amount transferred: $%.2f\n", amount);
-    printf("To: %s (Account: %d)\n", accounts[recipientIndex].name, recipientAccountNumber);
-    printf("Your new balance: $%.2f\n", acc->balance);
+    printf("\n%s========================================%s\n", COLOR_BRIGHT_GREEN, COLOR_RESET);
+    printf("%sTransfer completed successfully!%s\n", COLOR_BRIGHT_GREEN, COLOR_RESET);
+    printf("%s========================================%s\n", COLOR_BRIGHT_GREEN, COLOR_RESET);
+    printf("%sAmount transferred: %s$%.2f%s\n", COLOR_CYAN, COLOR_WHITE, amount, COLOR_RESET);
+    printf("%sTo: %s%s %s(%sAccount: %s%d%s)%s\n", COLOR_CYAN, COLOR_BRIGHT_YELLOW, accounts[recipientIndex].name, COLOR_CYAN, COLOR_RESET, COLOR_WHITE, recipientAccountNumber, COLOR_CYAN, COLOR_RESET);
+    printf("%sYour new balance: %s$%.2f%s\n", COLOR_CYAN, COLOR_BRIGHT_GREEN, acc->balance, COLOR_RESET);
 }
 
 void displayMainMenu() {
-    printf("\n ===============Main Menu===============\n");
-    printf("1. Login\n");
-    printf("2. Exit\n");
+    printf("\n%s=================== Main Menu ===================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
+    printf("%s1.%s Login\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
+    printf("%s2.%s Exit\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
+    printf("%s=================================================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
 }
 
 void displayUserMenu() {
-    printf("\n ===============User Menu===============\n");
-    printf("1. Deposit\n");
-    printf("2. Withdraw\n");
-    printf("3. Fund Transfer\n");
-    printf("4. Balance Inquiry\n");
-    printf("5. Transaction History\n");
-    printf("6. Change PIN\n");
-    printf("7. Logout\n");
+    printf("\n%s=================== User Menu ===================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
+    printf("%s1.%s Deposit\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
+    printf("%s2.%s Withdraw\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
+    printf("%s3.%s Fund Transfer\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
+    printf("%s4.%s Balance Inquiry\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
+    printf("%s5.%s Transaction History\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
+    printf("%s6.%s Change PIN\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
+    printf("%s7.%s Logout\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
+    printf("%s=================================================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
 }
 
 void clearInputBuffer() {
     int c;
     while ((c = getchar()) != '\n' && c != EOF);
 }
-
