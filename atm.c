@@ -79,6 +79,7 @@ int getTodayTransactionCount(int accountNumber);
 void saveDailyLimit(int accountNumber, float amount);
 void incrementTransactionCount(int accountNumber);
 int checkDailyLimit(int accountNumber, float amount, const char *type);
+void generateReceipt(Account acc);
 
 int main() {
     Account accounts[MAX_ACCOUNTS];
@@ -95,10 +96,11 @@ int main() {
 
     // Load existing accounts
     accountCount = loadAccounts(accounts);
-clearScreen();
+
+    clearScreen();
     printf("%s===================================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
     printf("%s     Welcome to ATM Simulation%s\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
-    printf("%s            Version 6.1%s\n", COLOR_GREEN, COLOR_RESET);
+    printf("%s            Version 6.2%s\n", COLOR_GREEN, COLOR_RESET);
     printf("%s===================================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
     pauseScreen();
 
@@ -126,7 +128,7 @@ clearScreen();
                     clearScreen();
                     printf("\n%sThank you for using our ATM.%s\n", COLOR_CYAN, COLOR_RESET);
                     printf("%sGoodbye!%s\n", COLOR_GREEN, COLOR_RESET);
-                    printf("%sVersion 6.1%s\n\n", COLOR_YELLOW, COLOR_RESET);
+                    printf("%sVersion 6.2%s\n\n", COLOR_YELLOW, COLOR_RESET);
                     printf("%sDeveloped by Masud%s\n", COLOR_MAGENTA, COLOR_RESET);
                     exit(0);
                 default:
@@ -167,10 +169,15 @@ clearScreen();
                     break;
                 case 6:
                     clearScreen();
-                    changePIN(&currentAccount, accounts, accountCount);
+                    generateReceipt(currentAccount);
                     pauseScreen();
                     break;
                 case 7:
+                    clearScreen();
+                    changePIN(&currentAccount, accounts, accountCount);
+                    pauseScreen();
+                    break;
+                case 8:
                     clearScreen();
                     loggedIn = 0;
                     printf("\n%sLogged out successfully!%s\n", COLOR_GREEN, COLOR_RESET);
@@ -765,6 +772,105 @@ void fundTransfer(Account *acc, Account accounts[], int count) {
     printf("%sYour new balance: %s$%.2f%s\n", COLOR_CYAN, COLOR_BRIGHT_GREEN, acc->balance, COLOR_RESET);
 }
 
+void generateReceipt(Account acc) {
+    FILE *file = fopen(FILENAME_TRANSACTIONS, "r");
+    FILE *receiptFile;
+    char receiptFilename[100];
+    char line[200];
+    int currentAccNo;
+    char type[50];
+    float amount;
+    char transDate[20];
+    char transTime[20];
+    int transactionCount = 0;
+    float totalDeposits = 0.0;
+    float totalWithdrawals = 0.0;
+    float totalTransfersIn = 0.0;
+    float totalTransfersOut = 0.0;
+
+    sprintf(receiptFilename, "receipt_%d.txt", acc.accountNumber);
+
+    printf("\n%s========================================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
+    printf("%sGenerating Receipt...%s\n", COLOR_YELLOW, COLOR_RESET);
+    printf("%s========================================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
+
+    if (file == NULL) {
+        printf("%sNo transaction history available.%s\n", COLOR_RED, COLOR_RESET);
+        return;
+    }
+
+    receiptFile = fopen(receiptFilename, "w");
+    if (receiptFile == NULL) {
+        printf("%sError creating receipt file!%s\n", COLOR_RED, COLOR_RESET);
+        fclose(file);
+        return;
+    }
+
+    time_t t = time(NULL);
+    struct tm *tm_info = localtime(&t);
+    char currentDate[20];
+    char currentTime[20];
+    strftime(currentDate, sizeof(currentDate), "%Y-%m-%d", tm_info);
+    strftime(currentTime, sizeof(currentTime), "%H:%M:%S", tm_info);
+
+    fprintf(receiptFile, "===============================================\n");
+    fprintf(receiptFile, "           TRANSACTION RECEIPT\n");
+    fprintf(receiptFile, "             ATM Simulation \n");
+    fprintf(receiptFile, "===============================================\n\n");
+    fprintf(receiptFile, "Generated: %s %s\n\n", currentDate, currentTime);
+    fprintf(receiptFile, "----------- Account Information -----------\n");
+    fprintf(receiptFile, "Account Holder: %s\n", acc.name);
+    fprintf(receiptFile, "Account Number: %d\n", acc.accountNumber);
+    fprintf(receiptFile, "Current Balance: $%.2f\n", acc.balance);
+    fprintf(receiptFile, "-------------------------------------------\n\n");
+    fprintf(receiptFile, "----------- Transaction History -----------\n");
+    fprintf(receiptFile, "Date         Time       Type                 Amount\n");
+    fprintf(receiptFile, "-------------------------------------------\n");
+
+    while (fgets(line, sizeof(line), file)) {
+        if (sscanf(line, "%d %49s %f %19s %19s", &currentAccNo, type, &amount, transDate, transTime) == 5) {
+            if (currentAccNo == acc.accountNumber) {
+                fprintf(receiptFile, "%s  %s  %-18s  $%.2f\n", transDate, transTime, type, amount);
+                transactionCount++;
+
+                if (strcmp(type, "Deposit") == 0) {
+                    totalDeposits += amount;
+                } else if (strcmp(type, "Withdraw") == 0) {
+                    totalWithdrawals += amount;
+                } else if (strncmp(type, "Transfer_from_", 14) == 0) {
+                    totalTransfersIn += amount;
+                } else if (strncmp(type, "Transfer_to_", 12) == 0) {
+                    totalTransfersOut += amount;
+                }
+            }
+        }
+    }
+
+    if (transactionCount == 0) {
+        fprintf(receiptFile, "No transactions found for this account.\n");
+    }
+
+    fprintf(receiptFile, "-------------------------------------------\n\n");
+    fprintf(receiptFile, "--------------- Summary -------------------\n");
+    fprintf(receiptFile, "Total Transactions: %d\n", transactionCount);
+    fprintf(receiptFile, "Total Deposits: $%.2f\n", totalDeposits);
+    fprintf(receiptFile, "Total Withdrawals: $%.2f\n", totalWithdrawals);
+    fprintf(receiptFile, "Total Transfers In: $%.2f\n", totalTransfersIn);
+    fprintf(receiptFile, "Total Transfers Out: $%.2f\n", totalTransfersOut);
+    fprintf(receiptFile, "-------------------------------------------\n\n");
+    fprintf(receiptFile, "Net Change: $%.2f\n", (totalDeposits + totalTransfersIn) - (totalWithdrawals + totalTransfersOut));
+    fprintf(receiptFile, "Current Balance: $%.2f\n", acc.balance);
+    fprintf(receiptFile, "-------------------------------------------\n\n");
+    fprintf(receiptFile, "Thank you for banking with us!\n");
+    fprintf(receiptFile, "===============================================\n");
+
+    fclose(file);
+    fclose(receiptFile);
+
+    printf("\n%sReceipt generated successfully!%s\n", COLOR_BRIGHT_GREEN, COLOR_RESET);
+
+}
+
 void displayMainMenu() {
     printf("\n%s=================== Main Menu ===================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
     printf("%s1.%s Login\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
@@ -779,8 +885,9 @@ void displayUserMenu() {
     printf("%s3.%s Fund Transfer\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
     printf("%s4.%s Balance Inquiry\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
     printf("%s5.%s Transaction History\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
-    printf("%s6.%s Change PIN\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
-    printf("%s7.%s Logout\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
+    printf("%s6.%s Generate Receipt\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
+    printf("%s7.%s Change PIN\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
+    printf("%s8.%s Logout\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
     printf("%s=================================================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
 }
 
