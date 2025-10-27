@@ -45,12 +45,28 @@ void enableConsoleColors() {
 #define MAX_SINGLE_TRANSFER 3000.00
 #define MAX_DAILY_TRANSACTIONS 10
 
+// Define Account structure first
 typedef struct {
     int accountNumber;
     char name[50];
     int pin;
     float balance;
+    int isAdmin;  // New field to identify admin account
 } Account;
+
+// Forward declarations of all functions
+void displayMainMenu();
+void displayUserMenu();
+void displayAdminMenu();
+void clearInputBuffer();
+void clearScreen();
+void pauseScreen();
+int getMaskedPIN();
+void changePIN(Account *acc, Account accounts[], int count);
+void fundTransfer(Account *acc, Account accounts[], int count);
+void generateReceipt(Account acc);
+void adminLockAccount(Account *admin, Account accounts[], int count);
+void adminUnlockAccount(Account *admin, Account accounts[], int count);
 typedef struct {
     int accountNumber;
     char date[20];
@@ -120,7 +136,7 @@ int main() {
     clearScreen();
     printf("%s===================================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
     printf("%s     Welcome to ATM Simulation%s\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
-    printf("%s            Version 7.0%s\n", COLOR_GREEN, COLOR_RESET);
+    printf("%s            Version 8.0%s\n", COLOR_GREEN, COLOR_RESET);
     printf("%s===================================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
     pauseScreen();
 
@@ -135,9 +151,14 @@ int main() {
             switch (choice) {
                 case 1:
                     clearScreen();
-                    if (login(accounts, accountCount, &currentAccount)) {
+                    int loginResult = login(accounts, accountCount, &currentAccount);
+                    if (loginResult == 1) {  // Normal user login
                         loggedIn = 1;
                         printf("\n%sLogin successful! Welcome, %s!%s\n", COLOR_BRIGHT_GREEN, currentAccount.name, COLOR_RESET);
+                        pauseScreen();
+                    } else if (loginResult == 2) {  // Admin login
+                        loggedIn = 2;  // Special state for admin
+                        printf("\n%sAdmin login successful! Welcome, Administrator!%s\n", COLOR_BRIGHT_GREEN, COLOR_RESET);
                         pauseScreen();
                     } else {
                         printf("\n%sLogin failed! Invalid account number or PIN.%s\n", COLOR_BRIGHT_RED, COLOR_RESET);
@@ -148,14 +169,41 @@ int main() {
                     clearScreen();
                     printf("\n%sThank you for using our ATM.%s\n", COLOR_CYAN, COLOR_RESET);
                     printf("%sGoodbye!%s\n", COLOR_GREEN, COLOR_RESET);
-                    printf("%sVersion 7.0%s\n\n", COLOR_YELLOW, COLOR_RESET);
+                    printf("%sVersion 8.0%s\n\n", COLOR_YELLOW, COLOR_RESET);
                     printf("%sDeveloped by Masud%s\n", COLOR_MAGENTA, COLOR_RESET);
                     exit(0);
                 default:
                     printf("\n%sInvalid choice! Please try again.%s\n", COLOR_RED, COLOR_RESET);
                     pauseScreen();
             }
-        } else {
+        } else if (loggedIn == 2) {  // Admin menu
+            displayAdminMenu();
+            printf("%sEnter your choice: %s", COLOR_WHITE, COLOR_RESET);
+            scanf("%d", &choice);
+            clearInputBuffer();
+
+            switch (choice) {
+                case 1:
+                    clearScreen();
+                    adminLockAccount(&currentAccount, accounts, accountCount);
+                    pauseScreen();
+                    break;
+                case 2:
+                    clearScreen();
+                    adminUnlockAccount(&currentAccount, accounts, accountCount);
+                    pauseScreen();
+                    break;
+                case 3:
+                    clearScreen();
+                    loggedIn = 0;
+                    printf("\n%sAdmin logged out successfully!%s\n", COLOR_GREEN, COLOR_RESET);
+                    pauseScreen();
+                    break;
+                default:
+                    printf("\n%sInvalid choice! Please try again.%s\n", COLOR_RED, COLOR_RESET);
+                    pauseScreen();
+            }
+        } else {  // Normal user menu
             displayUserMenu();
             printf("%sEnter your choice: %s", COLOR_WHITE, COLOR_RESET);
             scanf("%d", &choice);
@@ -348,6 +396,22 @@ int login(Account accounts[], int count, Account *currentAccount) {
     scanf("%d", &accountNumber);
     clearInputBuffer();
 
+    // Check for admin login
+    if (accountNumber == 999999) {
+        printf("%sEnter PIN: %s", COLOR_YELLOW, COLOR_RESET);
+        pin = getMaskedPIN();
+
+        if (pin == 123456) {
+            currentAccount->accountNumber = 999999;
+            currentAccount->pin = 123456;
+            strcpy(currentAccount->name, "Administrator");
+            currentAccount->balance = 0;
+            currentAccount->isAdmin = 1;
+            return 2; // Special return code for admin login
+        }
+        return 0; // Failed admin login
+    }
+
     // Check if account is locked
     checkAndAutoUnlock(accountNumber);  // Try auto-unlock first
     if (isAccountLocked(accountNumber)) {
@@ -362,6 +426,7 @@ int login(Account accounts[], int count, Account *currentAccount) {
     for (int i = 0; i < count; i++) {
         if (accounts[i].accountNumber == accountNumber && accounts[i].pin == pin) {
             *currentAccount = accounts[i];
+            currentAccount->isAdmin = 0;
             // Reset failed attempts on successful login
             resetLoginAttempts(accountNumber);
             return 1; // Successful login
@@ -1125,7 +1190,145 @@ void displayUserMenu() {
     printf("%s=================================================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
 }
 
+void displayAdminMenu() {
+    printf("\n%s================== Admin Menu ==================%s\n", COLOR_BRIGHT_RED, COLOR_RESET);
+    printf("%s1.%s Lock Account\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
+    printf("%s2.%s Unlock Account\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
+    printf("%s3.%s Logout\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
+    printf("%s=================================================%s\n", COLOR_BRIGHT_RED, COLOR_RESET);
+}
+
+void adminLockAccount(Account *admin, Account accounts[], int count) {
+    int accountNumber;
+
+    printf("\n%s=============== Lock Account ===============%s\n", COLOR_BRIGHT_RED, COLOR_RESET);
+    printf("%sEnter account number to lock: %s", COLOR_YELLOW, COLOR_RESET);
+    scanf("%d", &accountNumber);
+    clearInputBuffer();
+
+    // Verify account exists
+    int accountExists = 0;
+    for (int i = 0; i < count; i++) {
+        if (accounts[i].accountNumber == accountNumber) {
+            accountExists = 1;
+            break;
+        }
+    }
+
+    if (!accountExists) {
+        printf("\n%sError: Account not found!%s\n", COLOR_RED, COLOR_RESET);
+        return;
+    }
+
+    if (accountNumber == admin->accountNumber) {
+        printf("\n%sError: Cannot lock admin account!%s\n", COLOR_RED, COLOR_RESET);
+        return;
+    }
+
+    // Force lock the account
+    FILE *file = fopen(FILENAME_LOCKOUT, "r");
+    FILE *tempFile = fopen("temp_lockout.txt", "w");
+    LoginSecurity record;
+    int found = 0;
+    time_t currentTime = time(NULL);
+
+    if (file == NULL || tempFile == NULL) {
+        if (file) fclose(file);
+        if (tempFile) fclose(tempFile);
+        printf("\n%sError: Could not access lockout file!%s\n", COLOR_RED, COLOR_RESET);
+        return;
+    }
+
+    // Copy existing records and update/add the target account
+    while (file && fscanf(file, "%d %d %ld %d",
+                  &record.accountNumber,
+                  &record.failedAttempts,
+                  &record.lockoutTime,
+                  &record.isLocked) == 4) {
+        if (record.accountNumber == accountNumber) {
+            found = 1;
+            record.failedAttempts = MAX_LOGIN_ATTEMPTS;
+            record.lockoutTime = currentTime;
+            record.isLocked = 2; // 2 indicates manual lock
+        }
+        fprintf(tempFile, "%d %d %ld %d\n",
+                record.accountNumber,
+                record.failedAttempts,
+                record.lockoutTime,
+                record.isLocked);
+    }
+
+    if (!found) {
+        fprintf(tempFile, "%d %d %ld %d\n",
+                accountNumber,
+                MAX_LOGIN_ATTEMPTS,
+                currentTime,
+                2); // 2 indicates manual lock
+    }
+
+    if (file) fclose(file);
+    fclose(tempFile);
+    remove(FILENAME_LOCKOUT);
+    rename("temp_lockout.txt", FILENAME_LOCKOUT);
+
+    printf("\n%sAccount %d has been locked successfully!%s\n", COLOR_BRIGHT_GREEN, accountNumber, COLOR_RESET);
+    printf("%sOnly an admin can unlock this account.%s\n", COLOR_YELLOW, COLOR_RESET);
+}
+
+void adminUnlockAccount(Account *admin, Account accounts[], int count) {
+    int accountNumber;
+
+    printf("\n%s=============== Unlock Account ===============%s\n", COLOR_BRIGHT_GREEN, COLOR_RESET);
+    printf("%sEnter account number to unlock: %s", COLOR_YELLOW, COLOR_RESET);
+    scanf("%d", &accountNumber);
+    clearInputBuffer();
+
+    // Verify account exists
+    int accountExists = 0;
+    for (int i = 0; i < count; i++) {
+        if (accounts[i].accountNumber == accountNumber) {
+            accountExists = 1;
+            break;
+        }
+    }
+
+    if (!accountExists) {
+        printf("\n%sError: Account not found!%s\n", COLOR_RED, COLOR_RESET);
+        return;
+    }
+
+    // Check if account is actually locked
+    FILE *file = fopen(FILENAME_LOCKOUT, "r");
+    LoginSecurity record;
+    int isLocked = 0;
+
+    if (file != NULL) {
+        while (fscanf(file, "%d %d %ld %d",
+                      &record.accountNumber,
+                      &record.failedAttempts,
+                      &record.lockoutTime,
+                      &record.isLocked) == 4) {
+            if (record.accountNumber == accountNumber && record.isLocked > 0) {
+                isLocked = record.isLocked;
+                break;
+            }
+        }
+        fclose(file);
+    }
+
+    if (!isLocked) {
+        printf("\n%sThis account is not locked!%s\n", COLOR_YELLOW, COLOR_RESET);
+        return;
+    }
+
+    // Unlock the account
+    unlockAccount(accountNumber);
+
+    printf("\n%sAccount %d has been unlocked successfully!%s\n", COLOR_BRIGHT_GREEN, accountNumber, COLOR_RESET);
+}
+
 void clearInputBuffer() {
     int c;
     while ((c = getchar()) != '\n' && c != EOF);
 }
+
