@@ -136,7 +136,7 @@ int main() {
     clearScreen();
     printf("%s===================================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
     printf("%s     Welcome to ATM Simulation%s\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
-    printf("%s            Version 8.0%s\n", COLOR_GREEN, COLOR_RESET);
+    printf("%s            Version 8.1%s\n", COLOR_GREEN, COLOR_RESET);
     printf("%s===================================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
     pauseScreen();
 
@@ -169,7 +169,7 @@ int main() {
                     clearScreen();
                     printf("\n%sThank you for using our ATM.%s\n", COLOR_CYAN, COLOR_RESET);
                     printf("%sGoodbye!%s\n", COLOR_GREEN, COLOR_RESET);
-                    printf("%sVersion 8.0%s\n\n", COLOR_YELLOW, COLOR_RESET);
+                    printf("%sVersion 8.1%s\n\n", COLOR_YELLOW, COLOR_RESET);
                     printf("%sDeveloped by Masud%s\n", COLOR_MAGENTA, COLOR_RESET);
                     exit(0);
                 default:
@@ -737,9 +737,11 @@ int isAccountLocked(int accountNumber) {
     FILE *file = fopen(FILENAME_LOCKOUT, "r");
     LoginSecurity record;
     time_t currentTime = time(NULL);
+
     if (file == NULL) {
-        return 0; // Not locked if file doesn't exist
+        return 0;
     }
+
     while (fscanf(file, "%d %d %ld %d",
                   &record.accountNumber,
                   &record.failedAttempts,
@@ -748,19 +750,24 @@ int isAccountLocked(int accountNumber) {
         if (record.accountNumber == accountNumber) {
             fclose(file);
             if (record.isLocked) {
+                // Check if it's a manual lock (isLocked == 2)
+                if (record.isLocked == 2) {
+                    return 1; // Manual lock - stays locked indefinitely
+                }
+
+                // Auto lock from failed attempts (isLocked == 1)
                 double timeElapsed = difftime(currentTime, record.lockoutTime);
                 if (timeElapsed >= LOCKOUT_DURATION) {
-                    // Auto-unlock
                     unlockAccount(accountNumber);
-                    return 0; // Not locked anymore
+                    return 0;
                 }
-                return 1; // Still locked
+                return 1;
             }
-            return 0; // Not locked
+            return 0;
         }
     }
     fclose(file);
-    return 0; // Account not found, not locked
+    return 0;
 }
 
 // Get remaining lockout time in seconds
@@ -789,19 +796,47 @@ int getRemainingLockoutTime(int accountNumber) {
 
 // Display lockout status with countdown
 void displayLockoutStatus(int accountNumber) {
-    int remainingSeconds = getRemainingLockoutTime(accountNumber);
-    int minutes = remainingSeconds / 60;
-    int seconds = remainingSeconds % 60;
+    FILE *file = fopen(FILENAME_LOCKOUT, "r");
+    LoginSecurity record;
+    int lockType = 0;
+
+    if (file != NULL) {
+        while (fscanf(file, "%d %d %ld %d",
+                      &record.accountNumber,
+                      &record.failedAttempts,
+                      &record.lockoutTime,
+                      &record.isLocked) == 4) {
+            if (record.accountNumber == accountNumber) {
+                lockType = record.isLocked;
+                break;
+            }
+        }
+        fclose(file);
+    }
+
     clearScreen();
     printf("\n%s==========================================%s\n", COLOR_BRIGHT_RED, COLOR_RESET);
     printf("%s          ACCOUNT LOCKED!%s\n", COLOR_BRIGHT_RED, COLOR_RESET);
     printf("%s==========================================%s\n", COLOR_BRIGHT_RED, COLOR_RESET);
     printf("\n%sAccount Number: %s%d%s\n", COLOR_CYAN, COLOR_YELLOW, accountNumber, COLOR_RESET);
-    printf("\n%sYour account has been locked due to%s\n", COLOR_RED, COLOR_RESET);
-    printf("%smultiple failed login attempts.%s\n", COLOR_RED, COLOR_RESET);
-    printf("\n%sTime remaining: %s%02d:%02d minutes%s\n",
-           COLOR_CYAN, COLOR_BRIGHT_YELLOW, minutes, seconds, COLOR_RESET);
-    printf("\n%sPlease try again after the lockout period.%s\n", COLOR_YELLOW, COLOR_RESET);
+
+    if (lockType == 2) {
+        // Manual lock by admin
+        printf("\n%sThis account has been locked by an administrator.%s\n", COLOR_RED, COLOR_RESET);
+        printf("%sPlease contact support for assistance.%s\n", COLOR_YELLOW, COLOR_RESET);
+    } else {
+        // Auto lock from failed attempts
+        int remainingSeconds = getRemainingLockoutTime(accountNumber);
+        int minutes = remainingSeconds / 60;
+        int seconds = remainingSeconds % 60;
+
+        printf("\n%sYour account has been locked due to%s\n", COLOR_RED, COLOR_RESET);
+        printf("%smultiple failed login attempts.%s\n", COLOR_RED, COLOR_RESET);
+        printf("\n%sTime remaining: %s%02d:%02d minutes%s\n",
+               COLOR_CYAN, COLOR_BRIGHT_YELLOW, minutes, seconds, COLOR_RESET);
+        printf("\n%sPlease try again after the lockout period.%s\n", COLOR_YELLOW, COLOR_RESET);
+    }
+
     printf("%s==========================================%s\n", COLOR_BRIGHT_RED, COLOR_RESET);
 }
 
@@ -819,15 +854,15 @@ void recordFailedAttempt(int accountNumber) {
     }
     if (file != NULL) {
         while (fscanf(file, "%d %d %ld %d",
-                      &record.accountNumber,
-                      &record.failedAttempts,
-                      &record.lockoutTime,
-                      &record.isLocked) == 4) {
+                     &record.accountNumber,
+                     &record.failedAttempts,
+                     &record.lockoutTime,
+                     &record.isLocked) == 4) {
             if (record.accountNumber == accountNumber) {
                 found = 1;
                 record.failedAttempts++;
                 if (record.failedAttempts >= MAX_LOGIN_ATTEMPTS) {
-                    record.isLocked = 1;
+                    record.isLocked = 1;  // 1 indicates auto-lock from failed attempts
                     record.lockoutTime = currentTime;
                 }
             }
