@@ -3,6 +3,7 @@
 #include <string.h>
 #include <time.h>
 #include <math.h>
+#include <ctype.h>
 #ifdef _WIN32
 #include <conio.h>
 #include <windows.h>
@@ -116,6 +117,10 @@ void saveDailyLimit(int accountNumber, float amount);
 void incrementTransactionCount(int accountNumber);
 int checkDailyLimit(int accountNumber, float amount, const char *type);
 void generateReceipt(Account acc);
+void adminViewAllAccounts(Account accounts[], int count);
+void adminViewAccountDetails(Account accounts[], int count);
+void adminSearchAccount(Account accounts[], int count);
+
 
 int main() {
     Account accounts[MAX_ACCOUNTS];
@@ -136,7 +141,7 @@ int main() {
     clearScreen();
     printf("%s===================================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
     printf("%s     Welcome to ATM Simulation%s\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
-    printf("%s            Version 8.1%s\n", COLOR_GREEN, COLOR_RESET);
+    printf("%s            Version 8.2%s\n", COLOR_GREEN, COLOR_RESET);
     printf("%s===================================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
     pauseScreen();
 
@@ -169,7 +174,7 @@ int main() {
                     clearScreen();
                     printf("\n%sThank you for using our ATM.%s\n", COLOR_CYAN, COLOR_RESET);
                     printf("%sGoodbye!%s\n", COLOR_GREEN, COLOR_RESET);
-                    printf("%sVersion 8.1%s\n\n", COLOR_YELLOW, COLOR_RESET);
+                    printf("%sVersion 8.2%s\n\n", COLOR_YELLOW, COLOR_RESET);
                     printf("%sDeveloped by Masud%s\n", COLOR_MAGENTA, COLOR_RESET);
                     exit(0);
                 default:
@@ -177,32 +182,48 @@ int main() {
                     pauseScreen();
             }
         } else if (loggedIn == 2) {  // Admin menu
-            displayAdminMenu();
-            printf("%sEnter your choice: %s", COLOR_WHITE, COLOR_RESET);
-            scanf("%d", &choice);
-            clearInputBuffer();
+    displayAdminMenu();
+    printf("%sEnter your choice: %s", COLOR_WHITE, COLOR_RESET);
+    scanf("%d", &choice);
+    clearInputBuffer();
 
-            switch (choice) {
-                case 1:
-                    clearScreen();
-                    adminLockAccount(&currentAccount, accounts, accountCount);
-                    pauseScreen();
-                    break;
-                case 2:
-                    clearScreen();
-                    adminUnlockAccount(&currentAccount, accounts, accountCount);
-                    pauseScreen();
-                    break;
-                case 3:
-                    clearScreen();
-                    loggedIn = 0;
-                    printf("\n%sAdmin logged out successfully!%s\n", COLOR_GREEN, COLOR_RESET);
-                    pauseScreen();
-                    break;
-                default:
-                    printf("\n%sInvalid choice! Please try again.%s\n", COLOR_RED, COLOR_RESET);
-                    pauseScreen();
-            }
+    switch (choice) {
+        case 1:
+            clearScreen();
+            adminViewAllAccounts(accounts, accountCount);
+            pauseScreen();
+            break;
+        case 2:
+            clearScreen();
+            adminViewAccountDetails(accounts, accountCount);
+            pauseScreen();
+            break;
+        case 3:
+            clearScreen();
+            adminSearchAccount(accounts, accountCount);
+            pauseScreen();
+            break;
+        case 4:
+            clearScreen();
+            adminLockAccount(&currentAccount, accounts, accountCount);
+            pauseScreen();
+            break;
+        case 5:
+            clearScreen();
+            adminUnlockAccount(&currentAccount, accounts, accountCount);
+            pauseScreen();
+            break;
+        case 6:
+            clearScreen();
+            loggedIn = 0;
+            printf("\n%sAdmin logged out successfully!%s\n", COLOR_GREEN, COLOR_RESET);
+            pauseScreen();
+            break;
+        default:
+            printf("\n%sInvalid choice! Please try again.%s\n", COLOR_RED, COLOR_RESET);
+            pauseScreen();
+    }
+
         } else {  // Normal user menu
             displayUserMenu();
             printf("%sEnter your choice: %s", COLOR_WHITE, COLOR_RESET);
@@ -1227,9 +1248,12 @@ void displayUserMenu() {
 
 void displayAdminMenu() {
     printf("\n%s================== Admin Menu ==================%s\n", COLOR_BRIGHT_RED, COLOR_RESET);
-    printf("%s1.%s Lock Account\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
-    printf("%s2.%s Unlock Account\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
-    printf("%s3.%s Logout\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
+    printf("%s1.%s View All Accounts\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
+    printf("%s2.%s View Account Details\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
+    printf("%s3.%s Search Account\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
+    printf("%s4.%s Lock Account\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
+    printf("%s5.%s Unlock Account\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
+    printf("%s6.%s Logout\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
     printf("%s=================================================%s\n", COLOR_BRIGHT_RED, COLOR_RESET);
 }
 
@@ -1361,7 +1385,316 @@ void adminUnlockAccount(Account *admin, Account accounts[], int count) {
 
     printf("\n%sAccount %d has been unlocked successfully!%s\n", COLOR_BRIGHT_GREEN, accountNumber, COLOR_RESET);
 }
+void adminViewAllAccounts(Account accounts[], int count) {
+    if (count == 0) {
+        printf("\n%sNo accounts found in the system.%s\n", COLOR_YELLOW, COLOR_RESET);
+        return;
+    }
 
+    clearScreen();
+    printf("\n%s===============================================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
+    printf("%s          ALL ACCOUNTS IN SYSTEM%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
+    printf("%s===============================================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
+    printf("%sTotal Accounts: %s%d%s\n", COLOR_CYAN, COLOR_BRIGHT_YELLOW, count, COLOR_RESET);
+    printf("%s===============================================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
+
+    // Calculate total system balance
+    float totalBalance = 0.0;
+    for (int i = 0; i < count; i++) {
+        totalBalance += accounts[i].balance;
+    }
+
+    printf("\n%s%-6s | %-20s | %-12s | %-10s%s\n",
+           COLOR_BRIGHT_YELLOW, "Acc No", "Name", "Balance", "Status", COLOR_RESET);
+    printf("%s%s%s\n", COLOR_CYAN,
+           "-------|----------------------|--------------|------------", COLOR_RESET);
+
+    for (int i = 0; i < count; i++) {
+        // Check if account is locked
+        int locked = isAccountLocked(accounts[i].accountNumber);
+
+        // Color code based on balance
+        char *balanceColor;
+        if (accounts[i].balance >= 5000.0) {
+            balanceColor = COLOR_BRIGHT_GREEN;
+        } else if (accounts[i].balance >= 1000.0) {
+            balanceColor = COLOR_GREEN;
+        } else if (accounts[i].balance >= 100.0) {
+            balanceColor = COLOR_YELLOW;
+        } else {
+            balanceColor = COLOR_RED;
+        }
+
+        printf("%s%-6d%s | %-20s | %s$%10.2f%s | %s%-10s%s\n",
+               COLOR_WHITE, accounts[i].accountNumber, COLOR_RESET,
+               accounts[i].name,
+               balanceColor, accounts[i].balance, COLOR_RESET,
+               locked ? COLOR_RED : COLOR_GREEN,
+               locked ? "LOCKED" : "ACTIVE",
+               COLOR_RESET);
+    }
+
+    printf("%s%s%s\n", COLOR_CYAN,
+           "-------|----------------------|--------------|------------", COLOR_RESET);
+    printf("\n%sTotal System Balance: %s$%.2f%s\n",
+           COLOR_CYAN, COLOR_BRIGHT_GREEN, totalBalance, COLOR_RESET);
+    printf("%sAverage Balance: %s$%.2f%s\n",
+           COLOR_CYAN, COLOR_YELLOW, totalBalance / count, COLOR_RESET);
+
+    // Show statistics
+    int activeAccounts = 0;
+    int lockedAccounts = 0;
+    float highestBalance = accounts[0].balance;
+    float lowestBalance = accounts[0].balance;
+    char highestName[50], lowestName[50];
+    strcpy(highestName, accounts[0].name);
+    strcpy(lowestName, accounts[0].name);
+
+    for (int i = 0; i < count; i++) {
+        if (isAccountLocked(accounts[i].accountNumber)) {
+            lockedAccounts++;
+        } else {
+            activeAccounts++;
+        }
+
+        if (accounts[i].balance > highestBalance) {
+            highestBalance = accounts[i].balance;
+            strcpy(highestName, accounts[i].name);
+        }
+        if (accounts[i].balance < lowestBalance) {
+            lowestBalance = accounts[i].balance;
+            strcpy(lowestName, accounts[i].name);
+        }
+    }
+
+    printf("\n%s=============== STATISTICS ===============%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
+    printf("%sActive Accounts: %s%d%s\n", COLOR_CYAN, COLOR_GREEN, activeAccounts, COLOR_RESET);
+    printf("%sLocked Accounts: %s%d%s\n", COLOR_CYAN, COLOR_RED, lockedAccounts, COLOR_RESET);
+    printf("%sHighest Balance: %s$%.2f %s(%s)%s\n",
+           COLOR_CYAN, COLOR_BRIGHT_GREEN, highestBalance, COLOR_CYAN, highestName, COLOR_RESET);
+    printf("%sLowest Balance: %s$%.2f %s(%s)%s\n",
+           COLOR_CYAN, COLOR_YELLOW, lowestBalance, COLOR_CYAN, lowestName, COLOR_RESET);
+    printf("%s===========================================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
+}
+
+// Function to view detailed information of a specific account
+void adminViewAccountDetails(Account accounts[], int count) {
+    int accountNumber;
+
+    clearScreen();
+    printf("\n%s=============== Account Details ===============%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
+    printf("%sEnter account number: %s", COLOR_YELLOW, COLOR_RESET);
+    scanf("%d", &accountNumber);
+    clearInputBuffer();
+
+    // Find account
+    int found = -1;
+    for (int i = 0; i < count; i++) {
+        if (accounts[i].accountNumber == accountNumber) {
+            found = i;
+            break;
+        }
+    }
+
+    if (found == -1) {
+        printf("\n%sAccount not found!%s\n", COLOR_RED, COLOR_RESET);
+        return;
+    }
+
+    Account acc = accounts[found];
+
+    clearScreen();
+    printf("\n%s===============================================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
+    printf("%s          DETAILED ACCOUNT INFORMATION%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
+    printf("%s===============================================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
+
+    // Basic Information
+    printf("\n%s--- Basic Information ---%s\n", COLOR_CYAN, COLOR_RESET);
+    printf("%sAccount Number: %s%d%s\n", COLOR_CYAN, COLOR_BRIGHT_YELLOW, acc.accountNumber, COLOR_RESET);
+    printf("%sAccount Holder: %s%s%s\n", COLOR_CYAN, COLOR_BRIGHT_YELLOW, acc.name, COLOR_RESET);
+    printf("%sCurrent Balance: %s$%.2f%s\n", COLOR_CYAN, COLOR_BRIGHT_GREEN, acc.balance, COLOR_RESET);
+
+    // Account Status
+    int locked = isAccountLocked(acc.accountNumber);
+    printf("%sAccount Status: %s%s%s\n",
+           COLOR_CYAN,
+           locked ? COLOR_RED : COLOR_GREEN,
+           locked ? "LOCKED" : "ACTIVE",
+           COLOR_RESET);
+
+    if (locked) {
+        int remainingTime = getRemainingLockoutTime(acc.accountNumber);
+        if (remainingTime > 0) {
+            int minutes = remainingTime / 60;
+            int seconds = remainingTime % 60;
+            printf("%sLockout Time Remaining: %s%02d:%02d minutes%s\n",
+                   COLOR_CYAN, COLOR_YELLOW, minutes, seconds, COLOR_RESET);
+        } else {
+            printf("%sLock Type: %sManual (Admin Lock)%s\n",
+                   COLOR_CYAN, COLOR_RED, COLOR_RESET);
+        }
+    }
+
+    // Transaction Statistics
+    printf("\n%s--- Transaction Statistics (Today) ---%s\n", COLOR_CYAN, COLOR_RESET);
+    float todayWithdrawal = getTodayWithdrawal(acc.accountNumber);
+    int todayTransactions = getTodayTransactionCount(acc.accountNumber);
+
+    printf("%sTotal Withdrawn Today: %s$%.2f%s / %s$%.2f%s\n",
+           COLOR_CYAN, COLOR_YELLOW, todayWithdrawal, COLOR_RESET,
+           COLOR_WHITE, MAX_DAILY_WITHDRAWAL, COLOR_RESET);
+    printf("%sRemaining Daily Limit: %s$%.2f%s\n",
+           COLOR_CYAN, COLOR_GREEN, MAX_DAILY_WITHDRAWAL - todayWithdrawal, COLOR_RESET);
+    printf("%sTransactions Today: %s%d%s / %s%d%s\n",
+           COLOR_CYAN, COLOR_YELLOW, todayTransactions, COLOR_RESET,
+           COLOR_WHITE, MAX_DAILY_TRANSACTIONS, COLOR_RESET);
+
+    // Recent Transactions (Last 5)
+    printf("\n%s--- Recent Transactions (Last 5) ---%s\n", COLOR_CYAN, COLOR_RESET);
+
+    FILE *file = fopen(FILENAME_TRANSACTIONS, "r");
+    if (file != NULL) {
+        char line[200];
+        char transactions[1000][200];  // Store up to 1000 transactions
+        int transCount = 0;
+
+        // Read all transactions for this account
+        while (fgets(line, sizeof(line), file)) {
+            int accNo;
+            char type[50];
+            float amount;
+            char date[20];
+            char time[20];
+
+            if (sscanf(line, "%d %49s %f %19s %19s", &accNo, type, &amount, date, time) == 5) {
+                if (accNo == acc.accountNumber) {
+                    strcpy(transactions[transCount], line);
+                    transCount++;
+                    if (transCount >= 1000) break;
+                }
+            }
+        }
+        fclose(file);
+
+        // Display last 5 transactions
+        int startIdx = (transCount > 5) ? transCount - 5 : 0;
+        if (transCount == 0) {
+            printf("%sNo transactions found.%s\n", COLOR_YELLOW, COLOR_RESET);
+        } else {
+            for (int i = transCount - 1; i >= startIdx; i--) {
+                int accNo;
+                char type[50];
+                float amount;
+                char date[20];
+                char time[20];
+
+                if (sscanf(transactions[i], "%d %49s %f %19s %19s",
+                          &accNo, type, &amount, date, time) == 5) {
+                    printf("%s%s %s%s - ", COLOR_CYAN, date, time, COLOR_RESET);
+
+                    if (strstr(type, "Deposit") || strstr(type, "Transfer_from")) {
+                        printf("%s%s: %s+$%.2f%s\n",
+                               COLOR_GREEN, type, COLOR_BRIGHT_GREEN, amount, COLOR_RESET);
+                    } else if (strstr(type, "Withdraw") || strstr(type, "Transfer_to")) {
+                        printf("%s%s: %s-$%.2f%s\n",
+                               COLOR_YELLOW, type, COLOR_BRIGHT_YELLOW, amount, COLOR_RESET);
+                    } else {
+                        printf("%s%s: %s$%.2f%s\n",
+                               COLOR_WHITE, type, COLOR_WHITE, amount, COLOR_RESET);
+                    }
+                }
+            }
+        }
+    }
+
+    printf("\n%s===============================================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
+}
+
+// Function to search accounts by name or account number
+void adminSearchAccount(Account accounts[], int count) {
+    int choice;
+
+    clearScreen();
+    printf("\n%s=============== Search Account ===============%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
+    printf("%s1.%s Search by Account Number\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
+    printf("%s2.%s Search by Name\n", COLOR_BRIGHT_YELLOW, COLOR_RESET);
+    printf("%s==============================================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
+    printf("%sEnter choice: %s", COLOR_YELLOW, COLOR_RESET);
+    scanf("%d", &choice);
+    clearInputBuffer();
+
+    if (choice == 1) {
+        // Search by account number
+        int accountNumber;
+        printf("%sEnter account number: %s", COLOR_YELLOW, COLOR_RESET);
+        scanf("%d", &accountNumber);
+        clearInputBuffer();
+
+        for (int i = 0; i < count; i++) {
+            if (accounts[i].accountNumber == accountNumber) {
+                clearScreen();
+                printf("\n%s========== Account Found ==========%s\n", COLOR_BRIGHT_GREEN, COLOR_RESET);
+                printf("%sAccount Number: %s%d%s\n", COLOR_CYAN, COLOR_WHITE, accounts[i].accountNumber, COLOR_RESET);
+                printf("%sName: %s%s%s\n", COLOR_CYAN, COLOR_BRIGHT_YELLOW, accounts[i].name, COLOR_RESET);
+                printf("%sBalance: %s$%.2f%s\n", COLOR_CYAN, COLOR_BRIGHT_GREEN, accounts[i].balance, COLOR_RESET);
+                printf("%sStatus: %s%s%s\n",
+                       COLOR_CYAN,
+                       isAccountLocked(accounts[i].accountNumber) ? COLOR_RED : COLOR_GREEN,
+                       isAccountLocked(accounts[i].accountNumber) ? "LOCKED" : "ACTIVE",
+                       COLOR_RESET);
+                printf("%s===================================%s\n", COLOR_BRIGHT_GREEN, COLOR_RESET);
+                return;
+            }
+        }
+        printf("\n%sAccount not found!%s\n", COLOR_RED, COLOR_RESET);
+
+    } else if (choice == 2) {
+        // Search by name
+        char searchName[50];
+        printf("%sEnter name (or part of name): %s", COLOR_YELLOW, COLOR_RESET);
+        fgets(searchName, sizeof(searchName), stdin);
+        searchName[strcspn(searchName, "\n")] = 0;  // Remove newline
+
+        // Convert to lowercase for case-insensitive search
+        for (int i = 0; searchName[i]; i++) {
+            searchName[i] = tolower(searchName[i]);
+        }
+
+        clearScreen();
+        printf("\n%s========== Search Results ==========%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
+
+        int found = 0;
+        for (int i = 0; i < count; i++) {
+            char lowerName[50];
+            strcpy(lowerName, accounts[i].name);
+            for (int j = 0; lowerName[j]; j++) {
+                lowerName[j] = tolower(lowerName[j]);
+            }
+
+            if (strstr(lowerName, searchName) != NULL) {
+                found++;
+                printf("\n%s%d.%s %s%s%s\n", COLOR_YELLOW, found, COLOR_RESET,
+                       COLOR_BRIGHT_YELLOW, accounts[i].name, COLOR_RESET);
+                printf("   %sAccount: %s%d%s | %sBalance: %s$%.2f%s | %sStatus: %s%s%s\n",
+                       COLOR_CYAN, COLOR_WHITE, accounts[i].accountNumber, COLOR_RESET,
+                       COLOR_CYAN, COLOR_GREEN, accounts[i].balance, COLOR_RESET,
+                       COLOR_CYAN,
+                       isAccountLocked(accounts[i].accountNumber) ? COLOR_RED : COLOR_GREEN,
+                       isAccountLocked(accounts[i].accountNumber) ? "LOCKED" : "ACTIVE",
+                       COLOR_RESET);
+            }
+        }
+
+        if (found == 0) {
+            printf("%sNo accounts found matching '%s'%s\n", COLOR_YELLOW, searchName, COLOR_RESET);
+        } else {
+            printf("\n%sTotal accounts found: %s%d%s\n", COLOR_CYAN, COLOR_BRIGHT_GREEN, found, COLOR_RESET);
+        }
+        printf("%s====================================%s\n", COLOR_BRIGHT_CYAN, COLOR_RESET);
+    } else {
+        printf("\n%sInvalid choice!%s\n", COLOR_RED, COLOR_RESET);
+    }
+}
 void clearInputBuffer() {
     int c;
     while ((c = getchar()) != '\n' && c != EOF);
